@@ -209,25 +209,24 @@ void NoiseGateAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
 
     const auto numChannels = jmax (totalNumInputChannels, totalNumOutputChannels);
 
-    //auto inoutBlock = dsp::AudioBlock<float> (buffer).getSubsetChannelBlock (0, (size_t) numChannels);
-    // noiseGate.process (dsp::ProcessContextReplacing<float> (inoutBlock));
+    auto inoutBlock = dsp::AudioBlock<float> (buffer).getSubsetChannelBlock (0, (size_t) numChannels);
+    noiseGate.process (dsp::ProcessContextReplacing<float> (inoutBlock));
+    parameterManager.updateParameters(true);
     
-
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
         // ..do something to the data...
 
-        juce::dsp::AudioBlock<float> block(buffer);
-        juce::dsp::ProcessContextReplacing<float> context(block);
+        // juce::dsp::AudioBlock<float> block(buffer);
+        // juce::dsp::ProcessContextReplacing<float> context(block);
         // noiseGate.setParameters(parameters);
-        parameterManager.updateParameters(true);
-        noiseGate.process(context);
+        // parameterManager.updateParameters(true);
+        // noiseGate.process(context);
 
         // buffer.copyFrom(channel, 0, inoutBlock.getChannelPointer(channel), buffer.getNumSamples());
         // auto block = inoutBlock.getSingleChannelBlock(channel);
         // buffer.copyFrom(channel, 0, inoutBlock.getSingleChannelBlock(channel), buffer.getNumSamples());
-
         /*for (auto sample = 0; sample < buffer.getNumSamples(); ++sample) {
             channelData[sample] = noiseGate.processSample(channel, channelData[sample]);
         }*/
