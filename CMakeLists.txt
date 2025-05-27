@@ -331,3 +331,21 @@ add_plugin(amp_model
         ${gui_source}
         ${dsp_source}
         ${amp_model_source})
+
+
+# noise gate
+set(noise_gate_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/NoiseGate)
+
+add_plugin(noise_gate
+    VERSION 0.1.0
+    PLUGIN_NAME "Noise Gate"
+    PROD_NAME NoiseGate
+    PROD_CODE NGat
+    SYNTH FALSE
+    SOURCES
+       ${noise_gate_source}/PluginEditor.cpp
+       ${noise_gate_source}/PluginProcessor.cpp
+    INCLUDE_DIRS
+        ${gui_source}
+        ${dsp_source}
+        ${noise_gate_source})
