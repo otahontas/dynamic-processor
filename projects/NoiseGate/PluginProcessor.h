@@ -1,51 +1,60 @@
 #pragma once
 
 #include <JuceHeader.h>
-
-//==============================================================================
-/**
- */
-
 namespace Param {
 namespace ID {
+// gate
+static const juce::String GateThreshold{"gate_threshold"};
+static const juce::String GateAttack{"gate_attack"};
+static const juce::String GateHold{"gate_hold"};
+static const juce::String GateRelease{"gate_release"};
+
+// TODO: overall output gain?
+
+// generic
 static const juce::String Enabled{"enabled"};
-static const juce::String Threshold{"threshold"};
-static const juce::String Ratio{"ratio"};
-static const juce::String Attack{"attack"};
-static const juce::String Release{"release"};
 } // namespace ID
 
 namespace Name {
+
+// gate
+static const juce::String GateThreshold{"Gate Threshold"};
+static const juce::String GateAttack{"Gate Attack"};
+static const juce::String GateHold{"Gate Hold"};
+static const juce::String GateRelease{"Gate Release"};
+
+// generic
 static const juce::String Enabled{"Enabled"};
-static const juce::String Threshold{"Threshold"};
-static const juce::String Ratio{"Ratio"};
-static const juce::String Attack{"Attack"};
-static const juce::String Release{"Release"};
+
 } // namespace Name
 
 namespace Ranges {
-static constexpr float ThresholdMin{-60.f};
-static constexpr float ThresholdMax{0.f};
-static constexpr float ThresholdInc{0.1f};
-static constexpr float ThresholdSkw{0.5f};
+// TODO: check good skew and inc values
+// Gate
+static constexpr float GateThresholdMin{-96.f};
+static constexpr float GateThresholdMax{0.f};
+static constexpr float GateThresholdInc{0.1f};
+static constexpr float GateThresholdSkw{2.0f};
 
-static constexpr float RatioMin{1.f};
-static constexpr float RatioMax{100.f};
-static constexpr float RatioInc{0.1f};
-static constexpr float RatioSkw{0.5f};
+static constexpr float GateAttackMin{1.f};
+static constexpr float GateAttackMax{10.f};
+static constexpr float GateAttackInc{0.1f};
+static constexpr float GateAttackSkw{0.5f};
 
-static constexpr float AttackMin{1.f};
-static constexpr float AttackMax{10.f};
-static constexpr float AttackInc{0.1f};
-static constexpr float AttackSkw{0.5f};
+static constexpr float GateReleaseMin{5.f};
+static constexpr float GateReleaseMax{500.f};
+static constexpr float GateReleaseInc{0.1f};
+static constexpr float GateReleaseSkw{0.5f};
 
-static constexpr float ReleaseMin{5.f};
-static constexpr float ReleaseMax{500.f};
-static constexpr float ReleaseInc{0.1f};
-static constexpr float ReleaseSkw{0.5f};
+static constexpr float GateHoldMin{5.f};
+static constexpr float GateHoldMax{500.f};
+static constexpr float GateHoldInc{0.1f};
+static constexpr float GateHoldSkw{0.5f};
 
+// Generic
 static const juce::String EnabledOff{"Off"};
 static const juce::String EnabledOn{"On"};
+
 } // namespace Ranges
 
 namespace Units {
@@ -83,8 +92,26 @@ public:
 
 private:
   mrta::ParameterManager parameterManager;
-  juce::dsp::NoiseGate<float> noiseGate;
+
+  // gate stuff
+  float gateEnvelope = 0.0f;
+  float gateCurrentGain = 0.0f;
+  float gateThresholdLinear = 0.0f;
+  float gateAttackCoeff = 0.0f;
+  float gateReleaseCoeff = 0.0f;
+  float gateHoldSamples = 0.0f;
+  int gateHoldCounter = 0;
+
+  // (gate) coeffs for the envelope detector
+  float detectorAttackCoeff = 0.0f;
+  float detectorReleaseCoeff = 0.0f;
+
+  // generic
+  double currentSampleRate = 44100.0; // TODO: another default?
   bool isProcessorEnabled = true;
+
+  // helpers
+  float calculateCoefficient(float timeMs, double sr);
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessor)
 };
