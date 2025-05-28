@@ -3,7 +3,7 @@
 # Example:
 # ./build.sh mfrtaa VST3 Release
 
-# First arg: name of the target to be built 
+# First arg: name of the target to be built
 target=${1}
 
 # Second arg: Format of the target VST3/AU(MacOS only)/Standalone(default)
