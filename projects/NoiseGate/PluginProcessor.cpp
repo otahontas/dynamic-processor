@@ -198,7 +198,7 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   parameterManager.updateParameters(true);
 
   for (int channel = 0; channel < totalNumInputChannels; ++channel) {
-    auto *channelData = buffer.getWritePointer(channel);
+    // auto *channelData = buffer.getWritePointer(channel);
     // ..do something to the data...
 
     // juce::dsp::AudioBlock<float> block(buffer);
