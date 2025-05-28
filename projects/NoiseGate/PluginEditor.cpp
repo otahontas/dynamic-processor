@@ -1,15 +1,6 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 
-//==============================================================================
 NoiseGateAudioProcessorEditor::NoiseGateAudioProcessorEditor(
     NoiseGateAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p),
@@ -23,7 +14,6 @@ NoiseGateAudioProcessorEditor::NoiseGateAudioProcessorEditor(
 
 NoiseGateAudioProcessorEditor::~NoiseGateAudioProcessorEditor() {}
 
-//==============================================================================
 void NoiseGateAudioProcessorEditor::paint(juce::Graphics &g) {
   g.fillAll(
       getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
