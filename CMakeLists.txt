@@ -10,9 +10,7 @@ set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 
 # Define project
-project(mrta
-    VERSION 0.0.1
-    LANGUAGES C CXX)
+project(mrta VERSION 0.0.1 LANGUAGES C CXX)
 
 # Xcode 15 linker workaround
 # If you are using Link Time Optimisation (LTO), the new linker introduced in Xcode 15 may produce a broken binary.
@@ -23,12 +21,12 @@ if(APPLE)
 endif()
 
 # Some windows specific defines
-if (WIN32)
+if(WIN32)
     set(windows_defines _USE_MATH_DEFINES WIN32_LEAN_AND_MEAN)
 endif()
 
 # Some Linux specific defines (libcurl does not link for whatever reason)
-if (LINUX)
+if(LINUX)
     set(linux_defines JUCE_USE_CURL=0 JUCE_JACK=1)
 endif()
 
@@ -57,9 +55,22 @@ set(company_bundle_id "com.ModernRealTimeAudio")
 #   - INCLUDE_DIRS: A list of the include directories required by your sources.
 function(add_plugin target)
     # parse input args
-    set(one_value_args TARGET VERSION PLUGIN_NAME PROD_NAME PROD_CODE SYNTH)
+    set(one_value_args
+        TARGET
+        VERSION
+        PLUGIN_NAME
+        PROD_NAME
+        PROD_CODE
+        SYNTH
+    )
     set(multi_value_args SOURCES INCLUDE_DIRS)
-    cmake_parse_arguments(AP "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(
+        AP
+        ""
+        "${one_value_args}"
+        "${multi_value_args}"
+        ${ARGN}
+    )
 
     # info and debug
     message(STATUS "Adding JUCE plugin target: ${target}")
@@ -87,42 +98,65 @@ function(add_plugin target)
         IS_SYNTH ${AP_SYNTH}
         NEEDS_MIDI_INPUT ${AP_SYNTH}
         NEEDS_MIDI_OUTPUT FALSE
-        COPY_PLUGIN_AFTER_BUILD TRUE)
+        COPY_PLUGIN_AFTER_BUILD TRUE
+    )
     juce_generate_juce_header(${target})
 
-    target_sources(${target}
-        PRIVATE
-            ${AP_SOURCES})
+    target_sources(${target} PRIVATE ${AP_SOURCES})
 
-    target_include_directories(${target}
+    target_include_directories(
+        ${target}
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/asiosdk/common
-            ${AP_INCLUDE_DIRS})
+            ${AP_INCLUDE_DIRS}
+    )
 
-    target_compile_features(${target}
-        PUBLIC
-            cxx_std_17)
+    target_compile_features(${target} PUBLIC cxx_std_17)
 
-    target_compile_definitions(${target}
+    target_compile_definitions(
+        ${target}
         PRIVATE
-            JUCE_ASIO=1 JUCE_DIRECTSOUND=0 JUCE_USE_FLAC=0 JUCE_USE_OGGVORBIS=0
-            JUCE_USE_WINDOWS_MEDIA_FORMAT=0 JUCE_WEB_BROWSER=0
-            JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_SILENCE_XCODE_15_LINKER_WARNING=1
+            JUCE_ASIO=1
+            JUCE_DIRECTSOUND=0
+            JUCE_USE_FLAC=0
+            JUCE_USE_OGGVORBIS=0
+            JUCE_USE_WINDOWS_MEDIA_FORMAT=0
+            JUCE_WEB_BROWSER=0
+            JUCE_VST3_CAN_REPLACE_VST2=0
+            JUCE_SILENCE_XCODE_15_LINKER_WARNING=1
             ${windows_defines}
-            ${linux_defines})
+            ${linux_defines}
+    )
 
-    target_link_libraries(${target}
-        PRIVATE
-            juce::juce_audio_utils
-            juce::juce_dsp
-            mrta_utils
+    target_link_libraries(
+        ${target}
+        PRIVATE juce::juce_audio_utils juce::juce_dsp mrta_utils
         PUBLIC
             ${xcode_15_linker}
             juce::juce_recommended_config_flags
-            juce::juce_recommended_lto_flags)
-
+            juce::juce_recommended_lto_flags
+    )
+    # Apply -Wall, -Wshadow, and -Werror specifically for Debug builds
+    # when using a Clang-based compiler.
+    if(
+        CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+        OR CMAKE_CXX_COMPILER_ID MATCHES "AppleClang"
+    )
+        message(
+            STATUS
+            "Configuring Clang specific warning flags for ${target} (active in Debug builds only: -Wall -Wshadow -Werror)"
+        )
+        target_compile_options(
+            ${target}
+            PRIVATE "$<$<CONFIG:Debug>:-Wall;-Wshadow;-Werror>"
+        )
+    else()
+        message(
+            STATUS
+            "Skipping custom Clang-specific warning flags for ${target} (compiler is ${CMAKE_CXX_COMPILER_ID}). This block only targets Clang."
+        )
+    endif()
 endfunction(add_plugin)
-
 
 ## Plugin projects
 
@@ -142,7 +176,8 @@ add_plugin(mfrtaa
         ${mfrtaa_source}/PluginEditor.cpp
         ${mfrtaa_source}/PluginProcessor.cpp
     INCLUDE_DIRS
-        ${mfrtaa_source})
+        ${mfrtaa_source}
+)
 
 # ring mod project
 set(ringmod_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/RingModulator)
@@ -159,7 +194,8 @@ add_plugin(ringmod
         ${dsp_source}/RingMod.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${ringmod_source})
+        ${ringmod_source}
+)
 
 # parametric eq project
 set(parameq_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/ParametricEQ)
@@ -179,7 +215,8 @@ add_plugin(parameq
     INCLUDE_DIRS
         ${gui_source}
         ${dsp_source}
-        ${ringmod_source})
+        ${ringmod_source}
+)
 
 # flanger project
 set(flanger_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/Flanger)
@@ -197,7 +234,8 @@ add_plugin(flanger
         ${dsp_source}/Flanger.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${flanger_source})
+        ${flanger_source}
+)
 
 # delay project
 set(delay_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/Delay)
@@ -221,7 +259,8 @@ add_plugin(delay
     INCLUDE_DIRS
         ${dsp_source}
         ${gui_source}
-        ${delay_source})
+        ${delay_source}
+)
 
 # osc project
 set(osc_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/Oscillators)
@@ -238,7 +277,8 @@ add_plugin(osc
         ${dsp_source}/Oscillator.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${osc_source})
+        ${osc_source}
+)
 
 # midi handling project
 set(midi_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/MidiHandler)
@@ -256,7 +296,8 @@ add_plugin(midi
         ${dsp_source}/Oscillator.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${midi_source})
+        ${midi_source}
+)
 
 # envelope generator project
 set(envgen_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/EnvelopeGenerator)
@@ -273,7 +314,8 @@ add_plugin(envgen
         ${dsp_source}/EnvelopeGenerator.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${envgen_source})
+        ${envgen_source}
+)
 
 # state variable filter project
 set(svf_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/StateVariableFilter)
@@ -291,7 +333,8 @@ add_plugin(svf
         ${dsp_source}/Oscillator.cpp
     INCLUDE_DIRS
         ${dsp_source}
-        ${svf_source})
+        ${svf_source}
+)
 
 # mono synth project
 set(synth ${CMAKE_CURRENT_SOURCE_DIR}/projects/Synth)
@@ -312,7 +355,8 @@ add_plugin(synth
     INCLUDE_DIRS
         ${gui_source}
         ${dsp_source}
-        ${synth})
+        ${synth}
+)
 
 # homework 3 plugin template
 set(amp_model_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/AmpModel)
@@ -330,8 +374,8 @@ add_plugin(amp_model
     INCLUDE_DIRS
         ${gui_source}
         ${dsp_source}
-        ${amp_model_source})
-
+        ${amp_model_source}
+)
 
 # noise gate
 set(noise_gate_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/NoiseGate)
@@ -348,4 +392,5 @@ add_plugin(noise_gate
     INCLUDE_DIRS
         ${gui_source}
         ${dsp_source}
-        ${noise_gate_source})
+        ${noise_gate_source}
+)
