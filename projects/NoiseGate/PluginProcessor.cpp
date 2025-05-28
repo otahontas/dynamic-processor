@@ -3,18 +3,27 @@
 
 static const std::vector<mrta::ParameterInfo> Parameters{
     {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
-     Param::Ranges::EnabledOn, true},
+     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
 
-    // TODO: replace with ranges
-    // TODO: add the defaults to header
-    {Param::ID::GateThreshold, Param::Name::GateThreshold, "dB", -40.0f, -96.0f,
-     0.0f, 0.1f, 2.0f},
-    {Param::ID::GateAttack, Param::Name::GateAttack, "ms", 5.0f, 0.1f, 1000.0f,
-     0.1f, 0.3f},
-    {Param::ID::GateHold, Param::Name::GateHold, "ms", 10.0f, 0.0f, 2000.0f,
-     0.1f, 0.3f},
-    {Param::ID::GateRelease, Param::Name::GateRelease, "ms", 50.0f, 1.0f,
-     5000.0f, 0.1f, 0.3f},
+    {Param::ID::GateThreshold, Param::Name::GateThreshold, Param::Units::Db,
+     Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
+     Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
+     Param::Ranges::GateThresholdSkw},
+
+    {Param::ID::GateAttack, Param::Name::GateAttack, Param::Units::Ms,
+     Param::Defaults::GateAttackDefault, Param::Ranges::GateAttackMin,
+     Param::Ranges::GateAttackMax, Param::Ranges::GateAttackInc,
+     Param::Ranges::GateAttackSkw},
+
+    {Param::ID::GateHold, Param::Name::GateHold, Param::Units::Ms,
+     Param::Defaults::GateHoldDefault, Param::Ranges::GateHoldMin,
+     Param::Ranges::GateHoldMax, Param::Ranges::GateHoldInc,
+     Param::Ranges::GateHoldSkw},
+
+    {Param::ID::GateRelease, Param::Name::GateRelease, Param::Units::Ms,
+     Param::Defaults::GateReleaseDefault, Param::Ranges::GateReleaseMin,
+     Param::Ranges::GateReleaseMax, Param::Ranges::GateReleaseInc,
+     Param::Ranges::GateReleaseSkw},
 };
 
 NoiseGateAudioProcessor::NoiseGateAudioProcessor()

@@ -32,30 +32,42 @@ namespace Ranges {
 // TODO: check good skew and inc values
 // Gate
 static constexpr float GateThresholdMin{-96.f};
-static constexpr float GateThresholdMax{0.f};
+static constexpr float GateThresholdMax{0.0f};
 static constexpr float GateThresholdInc{0.1f};
 static constexpr float GateThresholdSkw{2.0f};
 
 static constexpr float GateAttackMin{1.f};
-static constexpr float GateAttackMax{10.f};
+static constexpr float GateAttackMax{1000.f};
 static constexpr float GateAttackInc{0.1f};
-static constexpr float GateAttackSkw{0.5f};
+static constexpr float GateAttackSkw{0.3f};
 
-static constexpr float GateReleaseMin{5.f};
-static constexpr float GateReleaseMax{500.f};
-static constexpr float GateReleaseInc{0.1f};
-static constexpr float GateReleaseSkw{0.5f};
-
-static constexpr float GateHoldMin{5.f};
-static constexpr float GateHoldMax{500.f};
+static constexpr float GateHoldMin{0.0f};
+static constexpr float GateHoldMax{2000.f};
 static constexpr float GateHoldInc{0.1f};
-static constexpr float GateHoldSkw{0.5f};
+static constexpr float GateHoldSkw{0.3f};
+
+static constexpr float GateReleaseMin{1.0f};
+static constexpr float GateReleaseMax{5000.f};
+static constexpr float GateReleaseInc{0.1f};
+static constexpr float GateReleaseSkw{0.3f};
 
 // Generic
 static const juce::String EnabledOff{"Off"};
 static const juce::String EnabledOn{"On"};
 
 } // namespace Ranges
+namespace Defaults {
+
+// gate
+static constexpr float GateThresholdDefault{-40.0f};
+static constexpr float GateAttackDefault{5.0f};
+static constexpr float GateHoldDefault{10.0f};
+static constexpr float GateReleaseDefault{50.0f};
+
+// generic
+static constexpr bool EnabledDefault{true};
+
+} // namespace Defaults
 
 namespace Units {
 static const juce::String Ms{"ms"};
@@ -107,7 +119,7 @@ private:
   float detectorReleaseCoeff = 0.0f;
 
   // generic
-  double currentSampleRate = 44100.0; // TODO: another default?
+  double currentSampleRate = 0;
   bool isProcessorEnabled = true;
 
   // helpers
