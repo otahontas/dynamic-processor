@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <algorithm>
+#include <vector>
 
 static const std::vector<mrta::ParameterInfo> Parameters{
     {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
@@ -30,61 +32,62 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
     : parameterManager(*this, ProjectInfo::projectName, Parameters) {
 
   parameterManager.registerParameterCallback(
-      Param::ID::Enabled, [this](float value, bool /*forced*/) {
-        isProcessorEnabled = (value > 0.5f);
-
-        // if not enabled, reset the state. TODO: investigate if good
+      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
+        isProcessorEnabled = (newValue > 0.5f);
         if (!isProcessorEnabled) {
-          // TODO: use defaults so they're shared
-          gateEnvelope = 0.0f;
-          gateCurrentGain = 0.0f;
-          gateHoldCounter = 0;
+          resetInternalGateValuesToDefaults();
         }
       });
 
   parameterManager.registerParameterCallback(
-      Param::ID::GateThreshold, [this](float value, bool /*forced*/) {
-        gateThresholdLinear = juce::Decibels::decibelsToGain(value);
+      Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
+        gateThresholdLinear = juce::Decibels::decibelsToGain(newValueDb);
       });
 
-  // TODO: check if better to calculate in prepare to play or even when
-  // processing block?
   parameterManager.registerParameterCallback(
-      Param::ID::GateAttack, [this](float value, bool /*forced*/) {
-        gateAttackCoeff = calculateCoefficient(value, currentSampleRate);
+      Param::ID::GateAttack, [this](float newValueMs, bool /*forced*/) {
+        gateAttackCoeff =
+            calculateInternalGateCoeff(newValueMs, currentSampleRate);
       });
   parameterManager.registerParameterCallback(
-      Param::ID::GateHold, [this](float value, bool /*forced*/) {
-        gateHoldSamples =
-            (value / 1000.0f) * static_cast<float>(currentSampleRate);
+      Param::ID::GateHold, [this](float newValueMs, bool /*forced*/) {
+        gateHoldSamples = msToSamples(newValueMs, currentSampleRate);
       });
   parameterManager.registerParameterCallback(
-      Param::ID::GateRelease, [this](float value, bool /*forced*/) {
-        gateReleaseCoeff = calculateCoefficient(value, currentSampleRate);
+      Param::ID::GateRelease, [this](float newValueMs, bool /*forced*/) {
+        gateReleaseCoeff =
+            calculateInternalGateCoeff(newValueMs, currentSampleRate);
       });
 }
 
 NoiseGateAudioProcessor::~NoiseGateAudioProcessor() {}
 
-float NoiseGateAudioProcessor::calculateCoefficient(float timeMs, double sr) {
-  if (timeMs <= 0.0f || sr <= 0.0) {
+float NoiseGateAudioProcessor::msToSamples(float valueMs, double sampleRate) {
+  return (valueMs / 1000.0f) * static_cast<float>(sampleRate);
+}
+
+float NoiseGateAudioProcessor::calculateInternalGateCoeff(float timeMs,
+                                                          double sampleRate) {
+  if (timeMs <= 0.0f || sampleRate <= 0.0) {
     return 0.0f;
   }
-  return std::exp(-1.0f / ((timeMs / 1000.0f) * static_cast<float>(sr)));
+  return std::exp(-1.0f / msToSamples(timeMs, sampleRate));
+}
+
+void NoiseGateAudioProcessor::resetInternalGateValuesToDefaults() {
+  gateEnvelope = GATE_ENVELOPE_DEFAULT;
+  gateCurrentGain = GATE_CURRENT_GAIN_DEFAULT;
+  gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
 }
 
 void NoiseGateAudioProcessor::prepareToPlay(double sampleRate,
                                             int samplesPerBlock) {
   currentSampleRate = sampleRate;
-
-  // TODO: use defaults from header (share with disabling resetting the state)
-  gateEnvelope = 0.0f;
-  gateCurrentGain = 0.0f;
-  gateHoldCounter = 0;
-
-  // calc coeffs with fixed values TODO: set fixed values in header
-  detectorAttackCoeff = calculateCoefficient(1.0f, currentSampleRate);
-  detectorReleaseCoeff = calculateCoefficient(100.0f, currentSampleRate);
+  resetInternalGateValuesToDefaults();
+  detectorAttackCoeff = calculateInternalGateCoeff(
+      GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT, currentSampleRate);
+  detectorReleaseCoeff = calculateInternalGateCoeff(
+      GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT, currentSampleRate);
 
   parameterManager.updateParameters(true);
 }
@@ -99,13 +102,15 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   }
 
   for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
-    auto *channelData = buffer.getWritePointer(channel);
+    // read & write to sepearate buffs, VSTs might have differences between
+    auto *channelData = buffer.getReadPointer(channel);
+    auto *writeChannel = buffer.getWritePointer(channel);
 
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
       float inputSample = channelData[sample];
       float inputAbs = std::abs(inputSample);
 
-      // 1. update internal peak detector
+      // 1. update internal gate envelope that tracks the input level
       if (inputAbs > gateEnvelope) {
         gateEnvelope = detectorAttackCoeff * gateEnvelope +
                        (1.0f - detectorAttackCoeff) * inputAbs;
@@ -115,42 +120,44 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       }
 
       // 2. run the gate logic
-      float targetGain = 0.0f;
-      bool signalIsAboveThreshold = (gateEnvelope > gateThresholdLinear);
-
-      if (signalIsAboveThreshold) {
-        targetGain = 1.0f;
+      // gate is
+      // - open if
+      //    - input level is over threshold
+      //    - input level is not over threshold but we're not pass the hold time
+      // - off otherwise
+      bool gateOpen = false;
+      if (gateEnvelope > gateThresholdLinear) {
+        gateOpen = true;
         gateHoldCounter = static_cast<int>(gateHoldSamples);
       } else {
         if (gateHoldCounter > 0) {
           gateHoldCounter--;
-          targetGain = 1.0f;
+          gateOpen = true;
         } else {
-          targetGain = 0.0f;
+          gateOpen = false;
         }
       }
+      float gateOpenFloatVal = static_cast<float>(gateOpen);
 
-      // 3. smooth
-      if (targetGain > gateCurrentGain) {
+      // 3. smooth gain based on attack and release from user
+      // clamps (min / max) values just in case gate over 1 / less than 0
+      if (gateOpen > gateCurrentGain) {
         gateCurrentGain = gateAttackCoeff * gateCurrentGain +
-                          (1.0f - gateAttackCoeff) * targetGain;
-        gateCurrentGain = std::min(gateCurrentGain, targetGain);
-      } else if (targetGain < gateCurrentGain) {
+                          (1.0f - gateAttackCoeff) * gateOpenFloatVal;
+        gateCurrentGain = std::min(gateCurrentGain, gateOpenFloatVal);
+      } else if (gateOpen < gateCurrentGain) {
         gateCurrentGain = gateReleaseCoeff * gateCurrentGain +
-                          (1.0f - gateReleaseCoeff) * targetGain;
-        gateCurrentGain = std::max(gateCurrentGain, targetGain);
+                          (1.0f - gateReleaseCoeff) * gateOpenFloatVal;
+        gateCurrentGain = std::max(gateCurrentGain, gateOpenFloatVal);
       }
 
-      channelData[sample] = inputSample * gateCurrentGain;
+      writeChannel[sample] = inputSample * gateCurrentGain;
     }
   }
 }
 
 void NoiseGateAudioProcessor::releaseResources() {
-  // TODO: use defaults here too
-  gateEnvelope = 0.0f;
-  gateCurrentGain = 0.0f;
-  gateHoldCounter = 0;
+  resetInternalGateValuesToDefaults();
 }
 
 void NoiseGateAudioProcessor::getStateInformation(juce::MemoryBlock &destData) {

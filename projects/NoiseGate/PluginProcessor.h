@@ -29,7 +29,7 @@ static const juce::String Enabled{"Enabled"};
 } // namespace Name
 
 namespace Ranges {
-// TODO: check good skew and inc values
+// TODO: check if these are good skew and inc values
 // Gate
 static constexpr float GateThresholdMin{-96.f};
 static constexpr float GateThresholdMax{0.0f};
@@ -105,25 +105,38 @@ public:
 private:
   mrta::ParameterManager parameterManager;
 
+  // internal defaults
+  // - envelope, gain and hold counter start always from zero
+  // - attack (fast) and release (moderate) time are used to set how quickly
+  // peak detection reacts to changes in input. Set to 0 if you want peak
+  // detection to work instantly all the time.
+  static constexpr float GATE_ENVELOPE_DEFAULT = 0.0f;
+  static constexpr float GATE_CURRENT_GAIN_DEFAULT = 0.0f;
+  static constexpr float GATE_HOLD_COUNTER_DEFAULT = 0.0f;
+  static constexpr float GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT = 1.0f;
+  static constexpr float GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT = 100.0f;
+
   // gate stuff
-  float gateEnvelope = 0.0f;
-  float gateCurrentGain = 0.0f;
+  // == calculated / set for internal stuff
+  float gateEnvelope = GATE_ENVELOPE_DEFAULT;
+  float gateCurrentGain = GATE_CURRENT_GAIN_DEFAULT;
+  int gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
+  float detectorAttackCoeff = 0.0f;
+  float detectorReleaseCoeff = 0.0f;
+  // == calculated based on user settings
   float gateThresholdLinear = 0.0f;
   float gateAttackCoeff = 0.0f;
   float gateReleaseCoeff = 0.0f;
   float gateHoldSamples = 0.0f;
-  int gateHoldCounter = 0;
-
-  // (gate) coeffs for the envelope detector
-  float detectorAttackCoeff = 0.0f;
-  float detectorReleaseCoeff = 0.0f;
 
   // generic
   double currentSampleRate = 0;
   bool isProcessorEnabled = true;
 
   // helpers
-  float calculateCoefficient(float timeMs, double sr);
+  float msToSamples(float timeMs, double sampleRate);
+  float calculateInternalGateCoeff(float valueMs, double sampleRate);
+  void resetInternalGateValuesToDefaults();
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessor)
 };
