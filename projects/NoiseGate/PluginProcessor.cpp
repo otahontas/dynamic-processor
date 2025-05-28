@@ -4,9 +4,7 @@
 #include <vector>
 
 static const std::vector<mrta::ParameterInfo> Parameters{
-    {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
-     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
-
+    // gate
     {Param::ID::GateThreshold, Param::Name::GateThreshold, Param::Units::Db,
      Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
      Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
@@ -26,24 +24,25 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Defaults::GateReleaseDefault, Param::Ranges::GateReleaseMin,
      Param::Ranges::GateReleaseMax, Param::Ranges::GateReleaseInc,
      Param::Ranges::GateReleaseSkw},
+
+    // generic
+    {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
+     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
+    {Param::ID::MasterGain, Param::Name::MasterGain, Param::Units::Db,
+     Param::Defaults::MasterGainDefault, Param::Ranges::MasterGainMin,
+     Param::Ranges::MasterGainMax, Param::Ranges::MasterGainInc,
+     Param::Ranges::MasterGainSkw},
 };
 
 NoiseGateAudioProcessor::NoiseGateAudioProcessor()
     : parameterManager(*this, ProjectInfo::projectName, Parameters) {
 
-  parameterManager.registerParameterCallback(
-      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
-        isProcessorEnabled = (newValue > 0.5f);
-        if (!isProcessorEnabled) {
-          resetInternalGateValuesToDefaults();
-        }
-      });
-
+  // gate
+  // TODO: smoothen the value changes for gate
   parameterManager.registerParameterCallback(
       Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
         gateThresholdLinear = juce::Decibels::decibelsToGain(newValueDb);
       });
-
   parameterManager.registerParameterCallback(
       Param::ID::GateAttack, [this](float newValueMs, bool /*forced*/) {
         gateAttackCoeff =
@@ -58,10 +57,29 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
         gateReleaseCoeff =
             calculateInternalGateCoeff(newValueMs, currentSampleRate);
       });
+
+  // generic
+  parameterManager.registerParameterCallback(
+      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
+        isProcessorEnabled = (newValue > 0.5f);
+        if (!isProcessorEnabled) {
+          resetInternalGateValuesToDefaults();
+        }
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::MasterGain, [this](float value, bool forced) {
+        float gainLinear = juce::Decibels::decibelsToGain(value);
+        if (forced) {
+          masterGainSmoother.setCurrentAndTargetValue(gainLinear);
+        } else {
+          masterGainSmoother.setTargetValue(gainLinear);
+        }
+      });
 }
 
 NoiseGateAudioProcessor::~NoiseGateAudioProcessor() {}
 
+// TODO: check if juce provides this too
 float NoiseGateAudioProcessor::msToSamples(float valueMs, double sampleRate) {
   return (valueMs / 1000.0f) * static_cast<float>(sampleRate);
 }
@@ -100,6 +118,8 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   if (!isProcessorEnabled) {
     return;
   }
+
+  float currentMasterOutputGain = masterGainSmoother.getNextValue();
 
   for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
     // read & write to sepearate buffs, VSTs might have differences between
@@ -151,7 +171,8 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         gateCurrentGain = std::max(gateCurrentGain, gateOpenFloatVal);
       }
 
-      writeChannel[sample] = inputSample * gateCurrentGain;
+      writeChannel[sample] =
+          inputSample * gateCurrentGain * currentMasterOutputGain;
     }
   }
 }

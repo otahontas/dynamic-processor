@@ -9,10 +9,9 @@ static const juce::String GateAttack{"gate_attack"};
 static const juce::String GateHold{"gate_hold"};
 static const juce::String GateRelease{"gate_release"};
 
-// TODO: overall output gain?
-
 // generic
 static const juce::String Enabled{"enabled"};
+static const juce::String MasterGain{"master_gain"};
 } // namespace ID
 
 namespace Name {
@@ -25,6 +24,7 @@ static const juce::String GateRelease{"Gate Release"};
 
 // generic
 static const juce::String Enabled{"Enabled"};
+static const juce::String MasterGain{"Master gain"};
 
 } // namespace Name
 
@@ -54,6 +54,10 @@ static constexpr float GateReleaseSkw{0.3f};
 // Generic
 static const juce::String EnabledOff{"Off"};
 static const juce::String EnabledOn{"On"};
+static constexpr float MasterGainMin{-60.0f};
+static constexpr float MasterGainMax{6.0f};
+static constexpr float MasterGainInc{0.1f};
+static constexpr float MasterGainSkw{2.0f};
 
 } // namespace Ranges
 namespace Defaults {
@@ -66,6 +70,7 @@ static constexpr float GateReleaseDefault{50.0f};
 
 // generic
 static constexpr bool EnabledDefault{true};
+static constexpr float MasterGainDefault{0.0f};
 
 } // namespace Defaults
 
@@ -132,6 +137,7 @@ private:
   // generic
   double currentSampleRate = 0;
   bool isProcessorEnabled = true;
+  juce::SmoothedValue<float> masterGainSmoother;
 
   // helpers
   float msToSamples(float timeMs, double sampleRate);
