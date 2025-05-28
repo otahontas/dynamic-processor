@@ -4,6 +4,14 @@
 #include <vector>
 
 static const std::vector<mrta::ParameterInfo> Parameters{
+    // generic
+    {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
+     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
+    {Param::ID::MasterGain, Param::Name::MasterGain, Param::Units::Db,
+     Param::Defaults::MasterGainDefault, Param::Ranges::MasterGainMin,
+     Param::Ranges::MasterGainMax, Param::Ranges::MasterGainInc,
+     Param::Ranges::MasterGainSkw},
+
     // gate
     {Param::ID::GateThreshold, Param::Name::GateThreshold, Param::Units::Db,
      Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
@@ -24,18 +32,27 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Defaults::GateReleaseDefault, Param::Ranges::GateReleaseMin,
      Param::Ranges::GateReleaseMax, Param::Ranges::GateReleaseInc,
      Param::Ranges::GateReleaseSkw},
-
-    // generic
-    {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
-     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
-    {Param::ID::MasterGain, Param::Name::MasterGain, Param::Units::Db,
-     Param::Defaults::MasterGainDefault, Param::Ranges::MasterGainMin,
-     Param::Ranges::MasterGainMax, Param::Ranges::MasterGainInc,
-     Param::Ranges::MasterGainSkw},
 };
 
 NoiseGateAudioProcessor::NoiseGateAudioProcessor()
     : parameterManager(*this, ProjectInfo::projectName, Parameters) {
+  // generic
+  parameterManager.registerParameterCallback(
+      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
+        isProcessorEnabled = (newValue > 0.5f);
+        if (!isProcessorEnabled) {
+          resetInternalGateValuesToDefaults();
+        }
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::MasterGain, [this](float value, bool forced) {
+        float gainLinear = juce::Decibels::decibelsToGain(value);
+        if (forced) {
+          masterGainSmoother.setCurrentAndTargetValue(gainLinear);
+        } else {
+          masterGainSmoother.setTargetValue(gainLinear);
+        }
+      });
 
   // gate
   // TODO: smoothen the value changes for gate
@@ -56,24 +73,6 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
       Param::ID::GateRelease, [this](float newValueMs, bool /*forced*/) {
         gateReleaseCoeff =
             calculateInternalGateCoeff(newValueMs, currentSampleRate);
-      });
-
-  // generic
-  parameterManager.registerParameterCallback(
-      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
-        isProcessorEnabled = (newValue > 0.5f);
-        if (!isProcessorEnabled) {
-          resetInternalGateValuesToDefaults();
-        }
-      });
-  parameterManager.registerParameterCallback(
-      Param::ID::MasterGain, [this](float value, bool forced) {
-        float gainLinear = juce::Decibels::decibelsToGain(value);
-        if (forced) {
-          masterGainSmoother.setCurrentAndTargetValue(gainLinear);
-        } else {
-          masterGainSmoother.setTargetValue(gainLinear);
-        }
       });
 }
 

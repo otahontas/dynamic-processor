@@ -3,34 +3,40 @@
 #include <JuceHeader.h>
 namespace Param {
 namespace ID {
+// generic
+static const juce::String Enabled{"enabled"};
+static const juce::String MasterGain{"master_gain"};
+
 // gate
 static const juce::String GateThreshold{"gate_threshold"};
 static const juce::String GateAttack{"gate_attack"};
 static const juce::String GateHold{"gate_hold"};
 static const juce::String GateRelease{"gate_release"};
-
-// generic
-static const juce::String Enabled{"enabled"};
-static const juce::String MasterGain{"master_gain"};
 } // namespace ID
 
 namespace Name {
+// generic
+static const juce::String Enabled{"Enabled"};
+static const juce::String MasterGain{"Master gain"};
 
 // gate
 static const juce::String GateThreshold{"Gate Threshold"};
 static const juce::String GateAttack{"Gate Attack"};
 static const juce::String GateHold{"Gate Hold"};
 static const juce::String GateRelease{"Gate Release"};
-
-// generic
-static const juce::String Enabled{"Enabled"};
-static const juce::String MasterGain{"Master gain"};
-
 } // namespace Name
 
 namespace Ranges {
 // TODO: check if these are good skew and inc values
-// Gate
+// generic
+static const juce::String EnabledOff{"Off"};
+static const juce::String EnabledOn{"On"};
+static constexpr float MasterGainMin{-60.0f};
+static constexpr float MasterGainMax{6.0f};
+static constexpr float MasterGainInc{0.1f};
+static constexpr float MasterGainSkw{2.0f};
+
+// gate
 static constexpr float GateThresholdMin{-96.f};
 static constexpr float GateThresholdMax{0.0f};
 static constexpr float GateThresholdInc{0.1f};
@@ -50,28 +56,17 @@ static constexpr float GateReleaseMin{1.0f};
 static constexpr float GateReleaseMax{5000.f};
 static constexpr float GateReleaseInc{0.1f};
 static constexpr float GateReleaseSkw{0.3f};
-
-// Generic
-static const juce::String EnabledOff{"Off"};
-static const juce::String EnabledOn{"On"};
-static constexpr float MasterGainMin{-60.0f};
-static constexpr float MasterGainMax{6.0f};
-static constexpr float MasterGainInc{0.1f};
-static constexpr float MasterGainSkw{2.0f};
-
 } // namespace Ranges
 namespace Defaults {
+// generic
+static constexpr bool EnabledDefault{true};
+static constexpr float MasterGainDefault{0.0f};
 
 // gate
 static constexpr float GateThresholdDefault{-40.0f};
 static constexpr float GateAttackDefault{5.0f};
 static constexpr float GateHoldDefault{10.0f};
 static constexpr float GateReleaseDefault{50.0f};
-
-// generic
-static constexpr bool EnabledDefault{true};
-static constexpr float MasterGainDefault{0.0f};
-
 } // namespace Defaults
 
 namespace Units {
@@ -109,8 +104,12 @@ public:
 
 private:
   mrta::ParameterManager parameterManager;
+  // generic
+  double currentSampleRate = 0;
+  bool isProcessorEnabled = true;
+  juce::SmoothedValue<float> masterGainSmoother;
 
-  // internal defaults
+  // internal gate defaults
   // - envelope, gain and hold counter start always from zero
   // - attack (fast) and release (moderate) time are used to set how quickly
   // peak detection reacts to changes in input. Set to 0 if you want peak
@@ -133,11 +132,6 @@ private:
   float gateAttackCoeff = 0.0f;
   float gateReleaseCoeff = 0.0f;
   float gateHoldSamples = 0.0f;
-
-  // generic
-  double currentSampleRate = 0;
-  bool isProcessorEnabled = true;
-  juce::SmoothedValue<float> masterGainSmoother;
 
   // helpers
   float msToSamples(float timeMs, double sampleRate);
