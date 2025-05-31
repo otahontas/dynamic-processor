@@ -27,4 +27,6 @@
 #include "Source/Parameter/ParameterManager.h"
 #include "Source/GUI/ParameterComponents.h"
 #include "Source/GUI/GenericParameterEditor.h"
+#include "Source/GUI/Knob.h"
+#include "Source/GUI/KnobHolder.h"
 

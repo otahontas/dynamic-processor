@@ -11,3 +11,4 @@
 
 #include "Source/Parameter/ParameterManager.cpp"
 #include "Source/GUI/GenericParameterEditor.cpp"
+#include "Source/GUI/KnobHolder.cpp"

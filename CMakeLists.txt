@@ -160,6 +160,8 @@ endfunction(add_plugin)
 
 # noise gate
 set(noise_gate_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/NoiseGate)
+set(dsp_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/DSP)
+set(gui_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/GUI)
 
 add_plugin(noise_gate
     VERSION 0.1.0

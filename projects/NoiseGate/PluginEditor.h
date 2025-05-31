@@ -2,6 +2,7 @@
 
 #include "PluginProcessor.h"
 #include <JuceHeader.h>
+#include "Knob.h"
 
 class NoiseGateAudioProcessorEditor : public juce::AudioProcessorEditor {
 public:
@@ -13,7 +14,8 @@ public:
 
 private:
   NoiseGateAudioProcessor &audioProcessor;
+  
   mrta::GenericParameterEditor genericParameterEditor;
-
+  
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessorEditor)
 };

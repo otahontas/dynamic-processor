@@ -1,4 +1,6 @@
 #pragma once
+#include <JuceHeader.h>
+#include "KnobHolder.h"
 
 namespace mrta
 {
@@ -10,6 +12,12 @@ public:
         juce::Slider(juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxRight),
         att(apvts, paramID, *this)
     {
+        setLookAndFeel(&KnobHolder::customKnob);
+        if (dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(paramID))==nullptr)
+        {
+            jassertfalse;
+        }
+
         juce::AudioParameterFloat* param { dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(paramID)) };
         if (!param)
         {
@@ -17,7 +25,10 @@ public:
             jassertfalse;
         }
     }
-
+    ~ParameterSlider() override
+    {
+        setLookAndFeel(nullptr);
+    }
     ParameterSlider() = delete;
 
 private:
