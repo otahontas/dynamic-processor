@@ -13,9 +13,13 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 project(mrta VERSION 0.0.1 LANGUAGES C CXX)
 
 # Xcode 15 linker workaround
-# If you are using Link Time Optimisation (LTO), the new linker introduced in Xcode 15 may produce a broken binary.
-# As a workaround, add either '-Wl,-weak_reference_mismatches,weak' or '-Wl,-ld_classic' to your linker flags.
-# Once you've selected a workaround, you can add JUCE_SILENCE_XCODE_15_LINKER_WARNING to your preprocessor definitions to silence this warning.
+# If you are using Link Time Optimisation (LTO), the new linker
+# introduced in Xcode 15 may produce a broken binary.
+# As a workaround, add either '-Wl,-weak_reference_mismatches,weak'
+# or '-Wl,-ld_classic' to your linker flags.
+# Once you've selected a workaround, you can add
+# JUCE_SILENCE_XCODE_15_LINKER_WARNING to your preprocessor
+# definitions to silence this warning.
 if(APPLE)
     set(xcode_15_linker -Wl,-ld_classic)
 endif()
@@ -37,7 +41,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dependencies/JUCE)
 juce_add_module(${CMAKE_CURRENT_SOURCE_DIR}/modules/mrta_utils)
 
 # General variables
-# You should change this to something more interesting
 set(company_name "Modern Real-Time Audio")
 set(company_copyright "Modern Real-Time Audio Oy")
 set(company_code "Mrta")
@@ -45,11 +48,13 @@ set(company_bundle_id "com.ModernRealTimeAudio")
 
 # This function adds a JUCE plugin target to this project
 # Arguments:
-#   - TARGET: The name of your plugin target, this allows you to identify which of your plugins will be built.
+#   - TARGET: The name of your plugin target, this allows you to identify
+#   - which of your plugins will be built.
 #   - VERSION: Version on your plugin.
 #   - PLUGIN_NAME: The name which will be displayed on the DAW.
 #   - PROD_NAME: Internal product name, cannot contain whitespace.
-#   - PROD_CODE: 4 letter code unique identifier to your plugin, at least 1 capitalized letter.
+#   - PROD_CODE: 4 letter code unique identifier to your plugin, at least
+#   - 1 capitalized letter.
 #   - SYNTH: Set to true if your plugin is a synth, false otherwise.
 #   - SOURCES: A list of all the source files of you plugin.
 #   - INCLUDE_DIRS: A list of the include directories required by your sources.
@@ -156,22 +161,22 @@ function(add_plugin target)
             "Skipping custom Clang-specific warning flags for ${target} (compiler is ${CMAKE_CXX_COMPILER_ID}). This block only targets Clang."
         )
     endif()
-endfunction(add_plugin)
+endfunction()
 
-# noise gate
+# dynamics processor
 set(dynamics_processor_source
     ${CMAKE_CURRENT_SOURCE_DIR}/projects/DynamicsProcessor
 )
 
 add_plugin(dynamics_processor
-    VERSION 0.1.0
-    PLUGIN_NAME "Dynamics processor"
-    PROD_NAME DynamicsProcessor
-    PROD_CODE DYNP
-    SYNTH FALSE
-    SOURCES
-       ${dynamics_processor_source}/PluginEditor.cpp
-       ${dynamics_processor_source}/PluginProcessor.cpp
-    INCLUDE_DIRS
+  VERSION 0.1.0
+  PLUGIN_NAME "Dynamics processor"
+  PROD_NAME DynamicsProcessor
+  PROD_CODE DYNP
+  SYNTH FALSE
+  SOURCES
+    ${dynamics_processor_source}/PluginEditor.cpp
+    ${dynamics_processor_source}/PluginProcessor.cpp
+  INCLUDE_DIRS
         ${dynamics_processor_source}
 )

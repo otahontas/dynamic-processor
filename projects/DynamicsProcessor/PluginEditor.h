@@ -5,7 +5,7 @@
 
 class NoiseGateAudioProcessorEditor : public juce::AudioProcessorEditor {
 public:
-  NoiseGateAudioProcessorEditor(NoiseGateAudioProcessor &);
+  explicit NoiseGateAudioProcessorEditor(NoiseGateAudioProcessor &);
   ~NoiseGateAudioProcessorEditor() override;
 
   void paint(juce::Graphics &) override;

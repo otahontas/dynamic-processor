@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # This command should be run to create the build folder.
 # After that, just run the build.sh script specifying

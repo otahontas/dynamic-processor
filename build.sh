@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Example:
 # ./build.sh mfrtaa VST3 Release
