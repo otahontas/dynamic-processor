@@ -55,7 +55,6 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
       });
 
   // gate
-  // TODO: smoothen the value changes for gate
   parameterManager.registerParameterCallback(
       Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
         gateThresholdLinear = juce::Decibels::decibelsToGain(newValueDb);
@@ -210,7 +209,6 @@ bool NoiseGateAudioProcessor::hasEditor() const { return true; }
 //==============================================================================
 
 //==============================================================================
-// This creates new instances of the plugin..
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
   return new NoiseGateAudioProcessor();
 }

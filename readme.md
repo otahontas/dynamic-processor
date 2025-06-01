@@ -1,4 +1,4 @@
-# Dynamic processor
+# Dynamics processor
 
 Noise gate + possibly compressor
 

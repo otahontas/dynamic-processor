@@ -159,17 +159,19 @@ function(add_plugin target)
 endfunction(add_plugin)
 
 # noise gate
-set(noise_gate_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/NoiseGate)
+set(dynamics_processor_source
+    ${CMAKE_CURRENT_SOURCE_DIR}/projects/DynamicsProcessor
+)
 
-add_plugin(noise_gate
+add_plugin(dynamics_processor
     VERSION 0.1.0
-    PLUGIN_NAME "Noise Gate"
-    PROD_NAME NoiseGate
-    PROD_CODE NGat
+    PLUGIN_NAME "Dynamics processor"
+    PROD_NAME DynamicsProcessor
+    PROD_CODE DYNP
     SYNTH FALSE
     SOURCES
-       ${noise_gate_source}/PluginEditor.cpp
-       ${noise_gate_source}/PluginProcessor.cpp
+       ${dynamics_processor_source}/PluginEditor.cpp
+       ${dynamics_processor_source}/PluginProcessor.cpp
     INCLUDE_DIRS
-        ${noise_gate_source}
+        ${dynamics_processor_source}
 )
