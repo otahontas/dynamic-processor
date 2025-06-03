@@ -77,7 +77,6 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
 
 NoiseGateAudioProcessor::~NoiseGateAudioProcessor() {}
 
-// TODO: check if juce provides this too
 float NoiseGateAudioProcessor::msToSamples(float valueMs, double sampleRate) {
   return (valueMs / 1000.0f) * static_cast<float>(sampleRate);
 }
@@ -157,9 +156,10 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       }
       float gateOpenFloatVal = static_cast<float>(gateOpen);
 
-      // 3. smooth gain based on attack and release from user
+      // 3. smooth gain with one-pole smoothing based on attack and release from
+      // user
       // clamps (min / max) values just in case gate over 1 / less than 0
-      if (gateOpen > gateCurrentGain) {
+      if (gateOpenFloatVal > gateCurrentGain) {
         gateCurrentGain = gateAttackCoeff * gateCurrentGain +
                           (1.0f - gateAttackCoeff) * gateOpenFloatVal;
         gateCurrentGain = std::min(gateCurrentGain, gateOpenFloatVal);

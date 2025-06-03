@@ -20,14 +20,13 @@ static const juce::String Enabled{"Enabled"};
 static const juce::String MasterGain{"Master gain"};
 
 // gate
-static const juce::String GateThreshold{"Gate Threshold"};
-static const juce::String GateAttack{"Gate Attack"};
-static const juce::String GateHold{"Gate Hold"};
-static const juce::String GateRelease{"Gate Release"};
+static const juce::String GateThreshold{"Gate threshold"};
+static const juce::String GateAttack{"Gate attack"};
+static const juce::String GateHold{"Gate hold"};
+static const juce::String GateRelease{"Gate release"};
 } // namespace Name
 
 namespace Ranges {
-// TODO: check if these are good skew and inc values
 // generic
 static const juce::String EnabledOff{"Off"};
 static const juce::String EnabledOn{"On"};
@@ -37,25 +36,25 @@ static constexpr float MasterGainInc{0.1f};
 static constexpr float MasterGainSkw{2.0f};
 
 // gate
-static constexpr float GateThresholdMin{-96.f};
+static constexpr float GateThresholdMin{-100.0f};
 static constexpr float GateThresholdMax{0.0f};
 static constexpr float GateThresholdInc{0.1f};
-static constexpr float GateThresholdSkw{2.0f};
+static constexpr float GateThresholdSkw{1.0f};
 
-static constexpr float GateAttackMin{1.f};
-static constexpr float GateAttackMax{1000.f};
+static constexpr float GateAttackMin{0.0f};
+static constexpr float GateAttackMax{100.0f};
 static constexpr float GateAttackInc{0.1f};
-static constexpr float GateAttackSkw{0.3f};
+static constexpr float GateAttackSkw{1.0f};
 
 static constexpr float GateHoldMin{0.0f};
-static constexpr float GateHoldMax{2000.f};
+static constexpr float GateHoldMax{1000.f};
 static constexpr float GateHoldInc{0.1f};
-static constexpr float GateHoldSkw{0.3f};
+static constexpr float GateHoldSkw{1.0f};
 
-static constexpr float GateReleaseMin{1.0f};
-static constexpr float GateReleaseMax{5000.f};
+static constexpr float GateReleaseMin{0.0f};
+static constexpr float GateReleaseMax{10000.0f};
 static constexpr float GateReleaseInc{0.1f};
-static constexpr float GateReleaseSkw{0.3f};
+static constexpr float GateReleaseSkw{0.2f};
 } // namespace Ranges
 namespace Defaults {
 // generic
@@ -63,10 +62,10 @@ static constexpr bool EnabledDefault{true};
 static constexpr float MasterGainDefault{0.0f};
 
 // gate
-static constexpr float GateThresholdDefault{-40.0f};
-static constexpr float GateAttackDefault{5.0f};
-static constexpr float GateHoldDefault{10.0f};
-static constexpr float GateReleaseDefault{50.0f};
+static constexpr float GateThresholdDefault{-50.0f};
+static constexpr float GateAttackDefault{3.0f};
+static constexpr float GateHoldDefault{40.0f};
+static constexpr float GateReleaseDefault{10.0f};
 } // namespace Defaults
 
 namespace Units {
