@@ -9,6 +9,7 @@ static const juce::String MasterGain{"master_gain"};
 
 // gate
 static const juce::String GateThreshold{"gate_threshold"};
+static const juce::String GateReduction{"gate_reduction"};
 static const juce::String GateAttack{"gate_attack"};
 static const juce::String GateHold{"gate_hold"};
 static const juce::String GateRelease{"gate_release"};
@@ -21,6 +22,7 @@ static const juce::String MasterGain{"Master gain"};
 
 // gate
 static const juce::String GateThreshold{"Gate threshold"};
+static const juce::String GateReduction{"Gate reduction"};
 static const juce::String GateAttack{"Gate attack"};
 static const juce::String GateHold{"Gate hold"};
 static const juce::String GateRelease{"Gate release"};
@@ -40,6 +42,11 @@ static constexpr float GateThresholdMin{-100.0f};
 static constexpr float GateThresholdMax{0.0f};
 static constexpr float GateThresholdInc{0.1f};
 static constexpr float GateThresholdSkw{1.0f};
+
+static constexpr float GateReductionMin{-100.0f};
+static constexpr float GateReductionMax{0.0f};
+static constexpr float GateReductionInc{0.1f};
+static constexpr float GateReductionSkw{1.0f};
 
 static constexpr float GateAttackMin{0.0f};
 static constexpr float GateAttackMax{100.0f};
@@ -63,6 +70,7 @@ static constexpr float MasterGainDefault{0.0f};
 
 // gate
 static constexpr float GateThresholdDefault{-50.0f};
+static constexpr float GateReductionDefault{-100.0f};
 static constexpr float GateAttackDefault{3.0f};
 static constexpr float GateHoldDefault{40.0f};
 static constexpr float GateReleaseDefault{10.0f};
@@ -114,20 +122,21 @@ private:
   // peak detection reacts to changes in input. Set to 0 if you want peak
   // detection to work instantly all the time.
   static constexpr float GATE_ENVELOPE_DEFAULT = 0.0f;
-  static constexpr float GATE_CURRENT_GAIN_DEFAULT = 0.0f;
-  static constexpr float GATE_HOLD_COUNTER_DEFAULT = 0.0f;
+  static constexpr float GATE_REDUCTION_LINEAR_DEFAULT = 0.0f;
+  static constexpr int GATE_HOLD_COUNTER_DEFAULT = 0;
   static constexpr float GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT = 1.0f;
   static constexpr float GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT = 100.0f;
 
   // gate stuff
   // == calculated / set for internal stuff
   float gateEnvelope = GATE_ENVELOPE_DEFAULT;
-  float gateCurrentGain = GATE_CURRENT_GAIN_DEFAULT;
+  float gateCurrentGain = GATE_REDUCTION_LINEAR_DEFAULT;
   int gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
   float detectorAttackCoeff = 0.0f;
   float detectorReleaseCoeff = 0.0f;
   // == calculated based on user settings
   float gateThresholdLinear = 0.0f;
+  float gateReductionLinear = GATE_REDUCTION_LINEAR_DEFAULT;
   float gateAttackCoeff = 0.0f;
   float gateReleaseCoeff = 0.0f;
   float gateHoldSamples = 0.0f;
@@ -135,6 +144,8 @@ private:
   // helpers
   float msToSamples(float timeMs, double sampleRate);
   float calculateInternalGateCoeff(float valueMs, double sampleRate);
+  float applyOnePoleSmoothing(float currentValue, float targetValue,
+                              float smoothingCoeff);
   void resetInternalGateValuesToDefaults();
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessor)

@@ -18,6 +18,11 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
      Param::Ranges::GateThresholdSkw},
 
+    {Param::ID::GateReduction, Param::Name::GateReduction, Param::Units::Db,
+     Param::Defaults::GateReductionDefault, Param::Ranges::GateReductionMin,
+     Param::Ranges::GateReductionMax, Param::Ranges::GateReductionInc,
+     Param::Ranges::GateReductionSkw},
+
     {Param::ID::GateAttack, Param::Name::GateAttack, Param::Units::Ms,
      Param::Defaults::GateAttackDefault, Param::Ranges::GateAttackMin,
      Param::Ranges::GateAttackMax, Param::Ranges::GateAttackInc,
@@ -40,9 +45,6 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
   parameterManager.registerParameterCallback(
       Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
         isProcessorEnabled = (newValue > 0.5f);
-        if (!isProcessorEnabled) {
-          resetInternalGateValuesToDefaults();
-        }
       });
   parameterManager.registerParameterCallback(
       Param::ID::MasterGain, [this](float value, bool forced) {
@@ -58,6 +60,10 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
   parameterManager.registerParameterCallback(
       Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
         gateThresholdLinear = juce::Decibels::decibelsToGain(newValueDb);
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::GateReduction, [this](float newValueDb, bool /*forced*/) {
+        gateReductionLinear = juce::Decibels::decibelsToGain(newValueDb);
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateAttack, [this](float newValueMs, bool /*forced*/) {
@@ -89,22 +95,27 @@ float NoiseGateAudioProcessor::calculateInternalGateCoeff(float timeMs,
   return std::exp(-1.0f / msToSamples(timeMs, sampleRate));
 }
 
+float NoiseGateAudioProcessor::applyOnePoleSmoothing(float currentValue,
+                                                     float targetValue,
+                                                     float smoothingCoeff) {
+  return smoothingCoeff * currentValue + (1.0f - smoothingCoeff) * targetValue;
+}
+
 void NoiseGateAudioProcessor::resetInternalGateValuesToDefaults() {
   gateEnvelope = GATE_ENVELOPE_DEFAULT;
-  gateCurrentGain = GATE_CURRENT_GAIN_DEFAULT;
+  gateCurrentGain = gateReductionLinear;
   gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
 }
 
 void NoiseGateAudioProcessor::prepareToPlay(double sampleRate,
                                             int samplesPerBlock) {
   currentSampleRate = sampleRate;
-  resetInternalGateValuesToDefaults();
   detectorAttackCoeff = calculateInternalGateCoeff(
       GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT, currentSampleRate);
   detectorReleaseCoeff = calculateInternalGateCoeff(
       GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT, currentSampleRate);
-
   parameterManager.updateParameters(true);
+  resetInternalGateValuesToDefaults();
 }
 
 void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -154,21 +165,28 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
           gateOpen = false;
         }
       }
-      float gateOpenFloatVal = static_cast<float>(gateOpen);
 
+      // 3. get the gain reduction (if open, no reduction, otherwise reduce)
+      float targetGainToApply;
+      if (gateOpen) {
+        targetGainToApply = 1.0f;
+      } else {
+        targetGainToApply = gateReductionLinear; // Use the reduction value
+      }
       // 3. smooth gain with one-pole smoothing based on attack and release from
       // user
       // clamps (min / max) values just in case gate over 1 / less than 0
-      if (gateOpenFloatVal > gateCurrentGain) {
-        gateCurrentGain = gateAttackCoeff * gateCurrentGain +
-                          (1.0f - gateAttackCoeff) * gateOpenFloatVal;
-        gateCurrentGain = std::min(gateCurrentGain, gateOpenFloatVal);
-      } else if (gateOpen < gateCurrentGain) {
-        gateCurrentGain = gateReleaseCoeff * gateCurrentGain +
-                          (1.0f - gateReleaseCoeff) * gateOpenFloatVal;
-        gateCurrentGain = std::max(gateCurrentGain, gateOpenFloatVal);
+      if (targetGainToApply > gateCurrentGain) {
+        gateCurrentGain =
+            std::min(applyOnePoleSmoothing(gateCurrentGain, targetGainToApply,
+                                           gateAttackCoeff),
+                     targetGainToApply);
+      } else if (targetGainToApply < gateCurrentGain) {
+        gateCurrentGain =
+            std::max(applyOnePoleSmoothing(gateCurrentGain, targetGainToApply,
+                                           gateReleaseCoeff),
+                     targetGainToApply);
       }
-
       writeChannel[sample] =
           inputSample * gateCurrentGain * currentMasterOutputGain;
     }
