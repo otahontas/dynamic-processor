@@ -17,7 +17,7 @@ private:
   double currentSampleRate = 0;
 
   float attackDetectorCoefficient = 0.0f;
-  float releaseDetectorCoeffiecient = 0.0f;
+  float releaseDetectorCoefficient = 0.0f;
 
   float currentEnvelopeDb = silenceFloor;
   float previousSmoothedAttackOutput = silenceFloor;

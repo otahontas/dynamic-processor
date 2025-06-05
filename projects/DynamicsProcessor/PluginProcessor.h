@@ -2,6 +2,7 @@
 
 #include "LevelDetector.h"
 #include <JuceHeader.h>
+#include <vector>
 
 namespace Param {
 namespace ID {
@@ -11,6 +12,7 @@ static const juce::String MasterGain{"master_gain"};
 
 // gate
 static const juce::String GateThreshold{"gate_threshold"};
+static const juce::String GateHysteresis{"gate_hysteresis"};
 static const juce::String GateReduction{"gate_reduction"};
 static const juce::String GateAttack{"gate_attack"};
 static const juce::String GateHold{"gate_hold"};
@@ -24,6 +26,7 @@ static const juce::String MasterGain{"Master gain"};
 
 // gate
 static const juce::String GateThreshold{"Gate threshold"};
+static const juce::String GateHysteresis{"Gate hysteresis"};
 static const juce::String GateReduction{"Gate reduction"};
 static const juce::String GateAttack{"Gate attack"};
 static const juce::String GateHold{"Gate hold"};
@@ -44,6 +47,11 @@ static constexpr float GateThresholdMin{-100.0f};
 static constexpr float GateThresholdMax{0.0f};
 static constexpr float GateThresholdInc{0.1f};
 static constexpr float GateThresholdSkw{1.0f};
+
+static constexpr float GateHysteresisMin{-20.0f};
+static constexpr float GateHysteresisMax{0.0f};
+static constexpr float GateHysteresisInc{0.1f};
+static constexpr float GateHysteresisSkw{1.0f};
 
 static constexpr float GateReductionMin{-100.0f};
 static constexpr float GateReductionMax{0.0f};
@@ -72,6 +80,7 @@ static constexpr float MasterGainDefault{0.0f};
 
 // gate
 static constexpr float GateThresholdDefault{-50.0f};
+static constexpr float GateHysteresisDefault{-3.0f};
 static constexpr float GateReductionDefault{-100.0f};
 static constexpr float GateAttackDefault{3.0f};
 static constexpr float GateHoldDefault{40.0f};
@@ -85,10 +94,10 @@ static const juce::String Db{"dB"};
 } // namespace Units
 } // namespace Param
 
-class NoiseGateAudioProcessor : public juce::AudioProcessor {
+class DynamicsAudioProcessor : public juce::AudioProcessor {
 public:
-  NoiseGateAudioProcessor();
-  ~NoiseGateAudioProcessor() override;
+  DynamicsAudioProcessor();
+  ~DynamicsAudioProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
@@ -115,28 +124,28 @@ private:
   mrta::ParameterManager parameterManager;
   // generic
   double currentSampleRate = 0;
-  bool isProcessorEnabled = true;
+  bool isProcessorEnabled = Param::Defaults::EnabledDefault;
   juce::SmoothedValue<float> masterGainSmoother;
-  DSP::LevelDetector levelDetector;
+  std::vector<DSP::LevelDetector> levelDetectors;
 
-  // internal gate defaults
-  // - envelope, gain and hold counter start always from zero
-  static constexpr float GATE_REDUCTION_LINEAR_DEFAULT = 0.0f;
-  static constexpr int GATE_HOLD_COUNTER_DEFAULT = 0;
+  // gate params (stored directly)
+  float gateOpenThresholdDb = Param::Defaults::GateThresholdDefault;
+  float gateHysteresisDb = Param::Defaults::GateHysteresisDefault;
+  float gateCloseThresholdDb = gateOpenThresholdDb + gateHysteresisDb;
+  float gateReductionDb = Param::Defaults::GateReductionDefault;
 
-  // gate stuff
-  // == calculated / set for internal stuff
-  float gateCurrentGain = GATE_REDUCTION_LINEAR_DEFAULT;
-  int gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
-  // == calculated based on user settings
-  float gateThresholdLinear = 0.0f;
-  float gateReductionLinear = GATE_REDUCTION_LINEAR_DEFAULT;
+  // gate params (calculated in parameter callbacks)
   float gateAttackCoefficient = 0.0f;
-  float gateReleaseCoefficient = 0.0f;
   float gateHoldSamples = 0.0f;
+  float gateReleaseCoefficient = 0.0f;
+
+  // internal vals
+  bool gateIsOpen = true;
+  float gateCurrentGainDb = 0.0f;
+  int gateHoldCounter = 0;
 
   // helpers
   void resetInternalGateValuesToDefaults();
 
-  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessor)
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DynamicsAudioProcessor)
 };

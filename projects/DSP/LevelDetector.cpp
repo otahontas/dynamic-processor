@@ -2,6 +2,7 @@
 #include "Utils.h"
 #include "juce_audio_basics/juce_audio_basics.h"
 #include <algorithm>
+#include <cmath>
 
 namespace DSP {
 LevelDetector::LevelDetector() {}
@@ -11,20 +12,28 @@ void LevelDetector::prepare(double sampleRate) {
   currentSampleRate = sampleRate;
   attackDetectorCoefficient = DSP::Utils::calculateSmoothingCoefficient(
       attackDetectionTimeMs, sampleRate);
-  releaseDetectorCoeffiecient = DSP::Utils::calculateSmoothingCoefficient(
+  releaseDetectorCoefficient = DSP::Utils::calculateSmoothingCoefficient(
       releaseDetectionTimeMs, sampleRate);
   reset();
 }
 
 float LevelDetector::process(float sample) {
-  float flooredInputDb =
+  auto inputLevelDb =
       std::max(juce::Decibels::gainToDecibels(std::abs(sample)), silenceFloor);
 
-  auto smootherCoefficient = flooredInputDb > currentEnvelopeDb
-                                 ? attackDetectorCoefficient
-                                 : releaseDetectorCoeffiecient;
-  currentEnvelopeDb = DSP::Utils::calculateOnePoleSmoothedOutput(
-      currentEnvelopeDb, flooredInputDb, smootherCoefficient);
+  auto smoothedAttackOutput = DSP::Utils::calculateOnePoleSmoothedOutput(
+      previousSmoothedAttackOutput, inputLevelDb, attackDetectorCoefficient);
+
+  auto smoothedReleaseOutput = DSP::Utils::calculateOnePoleSmoothedOutput(
+      previousSmoothedReleaseOutput, inputLevelDb, releaseDetectorCoefficient);
+
+  currentEnvelopeDb = (inputLevelDb > currentEnvelopeDb)
+                          ? smoothedAttackOutput
+                          : smoothedReleaseOutput;
+
+  previousSmoothedAttackOutput = smoothedAttackOutput;
+  previousSmoothedReleaseOutput = smoothedReleaseOutput;
+
   return currentEnvelopeDb;
 }
 

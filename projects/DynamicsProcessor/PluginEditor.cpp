@@ -1,7 +1,7 @@
 #include "PluginEditor.h"
 
-NoiseGateAudioProcessorEditor::NoiseGateAudioProcessorEditor(
-    NoiseGateAudioProcessor &p)
+DynamicsAudioProcessorEditor::DynamicsAudioProcessorEditor(
+    DynamicsAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p),
       genericParameterEditor(audioProcessor.getParameterManager()) {
   auto numParams = audioProcessor.getParameterManager().getParameters().size();
@@ -11,13 +11,13 @@ NoiseGateAudioProcessorEditor::NoiseGateAudioProcessorEditor(
   addAndMakeVisible(genericParameterEditor);
 }
 
-NoiseGateAudioProcessorEditor::~NoiseGateAudioProcessorEditor() {}
+DynamicsAudioProcessorEditor::~DynamicsAudioProcessorEditor() {}
 
-void NoiseGateAudioProcessorEditor::paint(juce::Graphics &g) {
+void DynamicsAudioProcessorEditor::paint(juce::Graphics &g) {
   g.fillAll(
       getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 }
 
-void NoiseGateAudioProcessorEditor::resized() {
+void DynamicsAudioProcessorEditor::resized() {
   genericParameterEditor.setBounds(getLocalBounds());
 }

@@ -2,6 +2,7 @@
 #include "LevelDetector.h"
 #include "PluginEditor.h"
 #include "Utils.h"
+#include "juce_audio_basics/juce_audio_basics.h"
 #include <algorithm>
 #include <vector>
 
@@ -19,6 +20,11 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
      Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
      Param::Ranges::GateThresholdSkw},
+
+    {Param::ID::GateHysteresis, Param::Name::GateHysteresis, Param::Units::Db,
+     Param::Defaults::GateHysteresisDefault, Param::Ranges::GateHysteresisMin,
+     Param::Ranges::GateHysteresisMax, Param::Ranges::GateHysteresisInc,
+     Param::Ranges::GateHysteresisSkw},
 
     {Param::ID::GateReduction, Param::Name::GateReduction, Param::Units::Db,
      Param::Defaults::GateReductionDefault, Param::Ranges::GateReductionMin,
@@ -41,7 +47,7 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Ranges::GateReleaseSkw},
 };
 
-NoiseGateAudioProcessor::NoiseGateAudioProcessor()
+DynamicsAudioProcessor::DynamicsAudioProcessor()
     : parameterManager(*this, ProjectInfo::projectName, Parameters) {
   // generic
   parameterManager.registerParameterCallback(
@@ -61,11 +67,17 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
   // gate
   parameterManager.registerParameterCallback(
       Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
-        gateThresholdLinear = juce::Decibels::decibelsToGain(newValueDb);
+        gateOpenThresholdDb = newValueDb;
+        gateCloseThresholdDb = gateOpenThresholdDb + gateHysteresisDb;
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::GateHysteresis, [this](float newValueDb, bool /*forced*/) {
+        gateHysteresisDb = newValueDb;
+        gateCloseThresholdDb = gateOpenThresholdDb + gateHysteresisDb;
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateReduction, [this](float newValueDb, bool /*forced*/) {
-        gateReductionLinear = juce::Decibels::decibelsToGain(newValueDb);
+        gateReductionDb = newValueDb;
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateAttack, [this](float newValueMs, bool /*forced*/) {
@@ -84,23 +96,27 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
       });
 }
 
-NoiseGateAudioProcessor::~NoiseGateAudioProcessor() {}
+DynamicsAudioProcessor::~DynamicsAudioProcessor() {}
 
-void NoiseGateAudioProcessor::resetInternalGateValuesToDefaults() {
-  gateCurrentGain = gateReductionLinear;
-  gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
+void DynamicsAudioProcessor::resetInternalGateValuesToDefaults() {
+  gateIsOpen = true;
+  gateCurrentGainDb = 0.0f;
+  gateHoldCounter = 0;
 }
 
-void NoiseGateAudioProcessor::prepareToPlay(double sampleRate,
-                                            int samplesPerBlock) {
+void DynamicsAudioProcessor::prepareToPlay(double sampleRate,
+                                           int samplesPerBlock) {
   currentSampleRate = sampleRate;
-  levelDetector.prepare(sampleRate);
+  int numChannels = getTotalNumInputChannels();
+  levelDetectors.resize(numChannels);
+  for (auto &levelDetector : levelDetectors)
+    levelDetector.prepare(sampleRate);
   parameterManager.updateParameters(true);
   resetInternalGateValuesToDefaults();
 }
 
-void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
-                                           juce::MidiBuffer &midiMessages) {
+void DynamicsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
+                                          juce::MidiBuffer &midiMessages) {
   juce::ScopedNoDenormals noDenormals;
   parameterManager.updateParameters();
 
@@ -109,95 +125,95 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   }
 
   float currentMasterOutputGain = masterGainSmoother.getNextValue();
+  int numChannels = buffer.getNumChannels();
+  int numSamples = buffer.getNumSamples();
 
-  for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
-    // read & write to sepearate buffs, VSTs might have differences between
-    auto *channelData = buffer.getReadPointer(channel);
-    auto *writeBuffer = buffer.getWritePointer(channel);
+  for (int sample = 0; sample < numSamples; ++sample) {
+    float maxEnvelopeDb =
+        gateOpenThresholdDb - 1000.0f; // definitely below threshold
 
-    for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+    // collect envelope values from all channels
+    for (int channel = 0; channel < numChannels; ++channel) {
+      auto *channelData = buffer.getReadPointer(channel);
+      DSP::LevelDetector &levelDetector = levelDetectors[channel];
       float inputSample = channelData[sample];
+      float envDb = levelDetector.process(inputSample);
+      if (envDb > maxEnvelopeDb)
+        maxEnvelopeDb = envDb;
+    }
 
-      // 1. get the envelope level of the input sample
-      float gateEnvelope = levelDetector.process(inputSample);
-
-      // 2. run the gate logic
-      // gate is
-      // - open if
-      //    - input level is over threshold
-      //    - input level is not over threshold but we're not pass the hold time
-      // - off otherwise
-      bool gateOpen = false;
-      if (gateEnvelope > gateThresholdLinear) {
-        gateOpen = true;
-        gateHoldCounter = static_cast<int>(gateHoldSamples);
+    // linked gating logic
+    float gateEnvelopeDb = maxEnvelopeDb;
+    if (gateEnvelopeDb > gateOpenThresholdDb) {
+      gateIsOpen = true;
+      gateHoldCounter = static_cast<int>(gateHoldSamples);
+    } else if (gateEnvelopeDb < gateCloseThresholdDb) {
+      if (gateHoldCounter > 0) {
+        gateHoldCounter--;
       } else {
-        if (gateHoldCounter > 0) {
-          gateHoldCounter--;
-          gateOpen = true;
-        } else {
-          gateOpen = false;
-        }
+        gateIsOpen = false;
       }
+    }
 
-      // 3. get the gain reduction (if open, no reduction, otherwise reduce)
-      float targetGain = gateOpen ? 1.0f : gateReductionLinear;
+    float targetGainDb = gateIsOpen ? 0.0f : gateReductionDb;
 
-      // 4. smooth gain with one-pole smoothing based on attack and release from
-      // user
-      // clamps (min / max) values just in case gate over 1 / less than 0
-      if (targetGain > gateCurrentGain) {
-        gateCurrentGain =
-            std::min(DSP::Utils::calculateOnePoleSmoothedOutput(
-                         gateCurrentGain, targetGain, gateAttackCoefficient),
-                     targetGain);
-      } else if (targetGain < gateCurrentGain) {
-        gateCurrentGain =
-            std::max(DSP::Utils::calculateOnePoleSmoothedOutput(
-                         gateCurrentGain, targetGain, gateReleaseCoefficient),
-                     targetGain);
-      }
+    if (targetGainDb > gateCurrentGainDb) {
+      gateCurrentGainDb =
+          std::min(DSP::Utils::calculateOnePoleSmoothedOutput(
+                       gateCurrentGainDb, targetGainDb, gateAttackCoefficient),
+                   targetGainDb);
+    } else if (targetGainDb < gateCurrentGainDb) {
+      gateCurrentGainDb =
+          std::max(DSP::Utils::calculateOnePoleSmoothedOutput(
+                       gateCurrentGainDb, targetGainDb, gateReleaseCoefficient),
+                   targetGainDb);
+    }
+    auto gateCurrentGainLinear =
+        juce::Decibels::decibelsToGain(gateCurrentGainDb);
+
+    // apply gate gain to all channels for this sample
+    for (int channel = 0; channel < numChannels; ++channel) {
+      auto *writeBuffer = buffer.getWritePointer(channel);
+      auto *channelData = buffer.getReadPointer(channel);
       writeBuffer[sample] =
-          inputSample * gateCurrentGain * currentMasterOutputGain;
+          channelData[sample] * gateCurrentGainLinear * currentMasterOutputGain;
     }
   }
 }
 
-void NoiseGateAudioProcessor::releaseResources() {
+void DynamicsAudioProcessor::releaseResources() {
   resetInternalGateValuesToDefaults();
-  levelDetector.reset();
+  for (auto &detector : levelDetectors)
+    detector.reset();
 }
 
-void NoiseGateAudioProcessor::getStateInformation(juce::MemoryBlock &destData) {
+void DynamicsAudioProcessor::getStateInformation(juce::MemoryBlock &destData) {
   parameterManager.getStateInformation(destData);
 }
 
-void NoiseGateAudioProcessor::setStateInformation(const void *data,
-                                                  int sizeInBytes) {
+void DynamicsAudioProcessor::setStateInformation(const void *data,
+                                                 int sizeInBytes) {
   parameterManager.setStateInformation(data, sizeInBytes);
 }
 
-juce::AudioProcessorEditor *NoiseGateAudioProcessor::createEditor() {
-  return new NoiseGateAudioProcessorEditor(*this);
+juce::AudioProcessorEditor *DynamicsAudioProcessor::createEditor() {
+  return new DynamicsAudioProcessor(*this);
 }
 
-//==============================================================================
-const juce::String NoiseGateAudioProcessor::getName() const {
+const juce::String DynamicsAudioProcessor::getName() const {
   return JucePlugin_Name;
 }
-bool NoiseGateAudioProcessor::acceptsMidi() const { return false; }
-bool NoiseGateAudioProcessor::producesMidi() const { return false; }
-bool NoiseGateAudioProcessor::isMidiEffect() const { return false; }
-double NoiseGateAudioProcessor::getTailLengthSeconds() const { return 0.0; }
-int NoiseGateAudioProcessor::getNumPrograms() { return 1; }
-int NoiseGateAudioProcessor::getCurrentProgram() { return 0; }
-void NoiseGateAudioProcessor::setCurrentProgram(int) {}
-const juce::String NoiseGateAudioProcessor::getProgramName(int) { return {}; }
-void NoiseGateAudioProcessor::changeProgramName(int, const juce::String &) {}
-bool NoiseGateAudioProcessor::hasEditor() const { return true; }
-//==============================================================================
+bool DynamicsAudioProcessor::acceptsMidi() const { return false; }
+bool DynamicsAudioProcessor::producesMidi() const { return false; }
+bool DynamicsAudioProcessor::isMidiEffect() const { return false; }
+double DynamicsAudioProcessor::getTailLengthSeconds() const { return 0.0; }
+int DynamicsAudioProcessor::getNumPrograms() { return 1; }
+int DynamicsAudioProcessor::getCurrentProgram() { return 0; }
+void DynamicsAudioProcessor::setCurrentProgram(int) {}
+const juce::String DynamicsAudioProcessor::getProgramName(int) { return {}; }
+void DynamicsAudioProcessor::changeProgramName(int, const juce::String &) {}
+bool DynamicsAudioProcessor::hasEditor() const { return true; }
 
-//==============================================================================
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
-  return new NoiseGateAudioProcessor();
+  return new DynamicsAudioProcessor();
 }
