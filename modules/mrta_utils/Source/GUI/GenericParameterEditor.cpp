@@ -56,8 +56,7 @@ GenericParameterEditor::GenericParameterEditor(
 }
 
 void GenericParameterEditor::paint(juce::Graphics &g) {
-  g.fillAll(
-      getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+  g.fillAll(juce::Colour(128, 128, 128));
 }
 void GenericParameterEditor::resized() {
   static juce::Rectangle<float> labelProportion{0.025f, 0.175f, 0.25f, 0.65f};

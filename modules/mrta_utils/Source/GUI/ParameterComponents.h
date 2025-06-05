@@ -16,6 +16,9 @@ public:
             // Parameter type is not Float
             jassertfalse;
         }
+
+        setColour(juce::Slider::backgroundColourId, juce::Colours::white);
+        setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::orange);
     }
 
     ParameterSlider() = delete;
@@ -68,13 +71,35 @@ public:
 
         setClickingTogglesState(true);
         setButtonText(labels[param->get() ? 1 : 0]);
+
+        updateButtonColours();
         onStateChange = [labels, this]
         {
             setButtonText(labels[getToggleState() ? 1 : 0]);
+            updateButtonColours();
         };
     }
 
     ParameterButton() = delete;
+
+private:
+    void updateButtonColours()
+    {
+        if (getToggleState())
+        {
+            setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+            setColour(juce::TextButton::buttonOnColourId, juce::Colours::green);
+            setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+            setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        }
+        else
+        {
+            setColour(juce::TextButton::buttonColourId, juce::Colour(153, 0, 0));
+            setColour(juce::TextButton::buttonOnColourId, juce::Colour(153, 0, 0));
+            setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+            setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        }
+    }
 
 private:
     juce::AudioProcessorValueTreeState::ButtonAttachment att;
