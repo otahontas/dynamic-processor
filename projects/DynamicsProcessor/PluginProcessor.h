@@ -6,41 +6,43 @@
 
 namespace Param {
 namespace ID {
-// generic
-static const juce::String Enabled{"enabled"};
-static const juce::String MasterGain{"master_gain"};
-
 // gate
+static const juce::String GateEnabled{"gate_enabled"};
+static const juce::String GateOutputGain{"gate_output_gain"};
 static const juce::String GateThreshold{"gate_threshold"};
 static const juce::String GateHysteresis{"gate_hysteresis"};
 static const juce::String GateReduction{"gate_reduction"};
 static const juce::String GateAttack{"gate_attack"};
 static const juce::String GateHold{"gate_hold"};
 static const juce::String GateRelease{"gate_release"};
+// compressor
+static const juce::String CompressorEnabled{"compressor_enabled"};
+static const juce::String CompressorOutputGain{"compressor_output_gain"};
 } // namespace ID
 
 namespace Name {
-// generic
-static const juce::String Enabled{"Enabled"};
-static const juce::String MasterGain{"Master gain"};
-
 // gate
+static const juce::String GateEnabled{"Gate Enabled"};
+static const juce::String GateOutputGain{"Gate Output Gain"};
 static const juce::String GateThreshold{"Gate threshold"};
 static const juce::String GateHysteresis{"Gate hysteresis"};
 static const juce::String GateReduction{"Gate reduction"};
 static const juce::String GateAttack{"Gate attack"};
 static const juce::String GateHold{"Gate hold"};
 static const juce::String GateRelease{"Gate release"};
+// compressor
+static const juce::String CompressorEnabled{"Compressor Enabled"};
+static const juce::String CompressorOutputGain{"Compressor Output Gain"};
 } // namespace Name
 
 namespace Ranges {
 // generic
 static const juce::String EnabledOff{"Off"};
 static const juce::String EnabledOn{"On"};
-static constexpr float MasterGainMin{-60.0f};
-static constexpr float MasterGainMax{6.0f};
-static constexpr float MasterGainInc{0.1f};
-static constexpr float MasterGainSkw{2.0f};
+static constexpr float OutputGainMin{-60.0f};
+static constexpr float OutputGainMax{6.0f};
+static constexpr float OutputGainInc{0.1f};
+static constexpr float OutputGainSkw{2.0f};
 
 // gate
 static constexpr float GateThresholdMin{-100.0f};
@@ -74,17 +76,18 @@ static constexpr float GateReleaseInc{0.1f};
 static constexpr float GateReleaseSkw{0.2f};
 } // namespace Ranges
 namespace Defaults {
-// generic
-static constexpr bool EnabledDefault{true};
-static constexpr float MasterGainDefault{0.0f};
-
 // gate
+static constexpr bool GateEnabledDefault{true};
+static constexpr float GateOutputGainDefault{0.0f};
 static constexpr float GateThresholdDefault{-50.0f};
 static constexpr float GateHysteresisDefault{-3.0f};
 static constexpr float GateReductionDefault{-100.0f};
 static constexpr float GateAttackDefault{3.0f};
 static constexpr float GateHoldDefault{40.0f};
 static constexpr float GateReleaseDefault{10.0f};
+// compressor
+static constexpr bool CompressorEnabledDefault{true};
+static constexpr float CompressorOutputGainDefault{0.0f};
 } // namespace Defaults
 
 namespace Units {
@@ -121,14 +124,14 @@ public:
   void changeProgramName(int index, const juce::String &newName) override;
 
 private:
-  mrta::ParameterManager parameterManager;
   // generic
+  mrta::ParameterManager parameterManager;
   double currentSampleRate = 0;
-  bool isProcessorEnabled = Param::Defaults::EnabledDefault;
-  juce::SmoothedValue<float> masterGainSmoother;
-  std::vector<DSP::LevelDetector> levelDetectors;
 
   // gate params (stored directly)
+  bool gateEnabled = Param::Defaults::GateEnabledDefault;
+  juce::SmoothedValue<float> gateOutputGainSmoother;
+
   float gateOpenThresholdDb = Param::Defaults::GateThresholdDefault;
   float gateHysteresisDb = Param::Defaults::GateHysteresisDefault;
   float gateCloseThresholdDb = gateOpenThresholdDb + gateHysteresisDb;
@@ -140,9 +143,23 @@ private:
   float gateReleaseCoefficient = 0.0f;
 
   // internal vals
+  std::vector<DSP::LevelDetector> levelDetectors;
   bool gateIsOpen = true;
   float gateCurrentGainDb = 0.0f;
   int gateHoldCounter = 0;
+
+  // compressor params (stored directly, hardcoded for now)
+  bool compressorEnabled = Param::Defaults::CompressorEnabledDefault;
+  juce::SmoothedValue<float> compressorOutputGainSmoother;
+  float compressorThresholdDb = -18.0f;
+  float compressorRatio = 4.0f;
+  float compressorKneeDb = 6.0f;
+  float compressorAttackMs = 5.0f;
+  float compressorReleaseMs = 50.0f;
+  float compressorMakeupGainDb = 0.0f;
+  float compressorAttackCoef = 0.0f;
+  float compressorReleaseCoef = 0.0f;
+  float compressorCurrentGainDb = 0.0f;
 
   // helpers
   void resetInternalGateValuesToDefaults();

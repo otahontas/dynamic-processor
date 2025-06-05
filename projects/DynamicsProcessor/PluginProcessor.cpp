@@ -7,15 +7,16 @@
 #include <vector>
 
 static const std::vector<mrta::ParameterInfo> Parameters{
-    // generic
-    {Param::ID::Enabled, Param::Name::Enabled, Param::Ranges::EnabledOff,
-     Param::Ranges::EnabledOn, Param::Defaults::EnabledDefault},
-    {Param::ID::MasterGain, Param::Name::MasterGain, Param::Units::Db,
-     Param::Defaults::MasterGainDefault, Param::Ranges::MasterGainMin,
-     Param::Ranges::MasterGainMax, Param::Ranges::MasterGainInc,
-     Param::Ranges::MasterGainSkw},
-
     // gate
+    {Param::ID::GateEnabled, Param::Name::GateEnabled,
+     Param::Ranges::EnabledOff, Param::Ranges::EnabledOn,
+     Param::Defaults::GateEnabledDefault},
+
+    {Param::ID::GateOutputGain, Param::Name::GateOutputGain, Param::Units::Db,
+     Param::Defaults::GateOutputGainDefault, Param::Ranges::OutputGainMin,
+     Param::Ranges::OutputGainMax, Param::Ranges::OutputGainInc,
+     Param::Ranges::OutputGainSkw},
+
     {Param::ID::GateThreshold, Param::Name::GateThreshold, Param::Units::Db,
      Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
      Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
@@ -45,26 +46,33 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Defaults::GateReleaseDefault, Param::Ranges::GateReleaseMin,
      Param::Ranges::GateReleaseMax, Param::Ranges::GateReleaseInc,
      Param::Ranges::GateReleaseSkw},
+
+    // compressor
+    {Param::ID::CompressorEnabled, Param::Name::CompressorEnabled,
+     Param::Ranges::EnabledOff, Param::Ranges::EnabledOn,
+     Param::Defaults::CompressorEnabledDefault},
+    {Param::ID::CompressorOutputGain, Param::Name::CompressorOutputGain,
+     Param::Units::Db, Param::Defaults::CompressorOutputGainDefault,
+     Param::Ranges::OutputGainMin, Param::Ranges::OutputGainMax,
+     Param::Ranges::OutputGainInc, Param::Ranges::OutputGainSkw},
 };
 
 DynamicsAudioProcessor::DynamicsAudioProcessor()
     : parameterManager(*this, ProjectInfo::projectName, Parameters) {
-  // generic
+  // gate
   parameterManager.registerParameterCallback(
-      Param::ID::Enabled, [this](float newValue, bool /*forced*/) {
-        isProcessorEnabled = (newValue > 0.5f);
+      Param::ID::GateEnabled, [this](float newValue, bool /*forced*/) {
+        gateEnabled = (newValue > 0.5f);
       });
   parameterManager.registerParameterCallback(
-      Param::ID::MasterGain, [this](float value, bool forced) {
+      Param::ID::GateOutputGain, [this](float value, bool forced) {
         float gainLinear = juce::Decibels::decibelsToGain(value);
         if (forced) {
-          masterGainSmoother.setCurrentAndTargetValue(gainLinear);
+          gateOutputGainSmoother.setCurrentAndTargetValue(gainLinear);
         } else {
-          masterGainSmoother.setTargetValue(gainLinear);
+          gateOutputGainSmoother.setTargetValue(gainLinear);
         }
       });
-
-  // gate
   parameterManager.registerParameterCallback(
       Param::ID::GateThreshold, [this](float newValueDb, bool /*forced*/) {
         gateOpenThresholdDb = newValueDb;
@@ -94,6 +102,20 @@ DynamicsAudioProcessor::DynamicsAudioProcessor()
         gateReleaseCoefficient = DSP::Utils::calculateSmoothingCoefficient(
             newValueMs, currentSampleRate);
       });
+  // compressor
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorEnabled, [this](float newValue, bool /*forced*/) {
+        compressorEnabled = (newValue > 0.5f);
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorOutputGain, [this](float value, bool forced) {
+        float gainLinear = juce::Decibels::decibelsToGain(value);
+        if (forced) {
+          compressorOutputGainSmoother.setCurrentAndTargetValue(gainLinear);
+        } else {
+          compressorOutputGainSmoother.setTargetValue(gainLinear);
+        }
+      });
 }
 
 DynamicsAudioProcessor::~DynamicsAudioProcessor() {}
@@ -111,6 +133,12 @@ void DynamicsAudioProcessor::prepareToPlay(double sampleRate,
   levelDetectors.resize(numChannels);
   for (auto &levelDetector : levelDetectors)
     levelDetector.prepare(sampleRate);
+  // Compressor smoothing coefficients
+  compressorAttackCoef =
+      DSP::Utils::calculateSmoothingCoefficient(compressorAttackMs, sampleRate);
+  compressorReleaseCoef = DSP::Utils::calculateSmoothingCoefficient(
+      compressorReleaseMs, sampleRate);
+  compressorCurrentGainDb = 0.0f;
   parameterManager.updateParameters(true);
   resetInternalGateValuesToDefaults();
 }
@@ -120,19 +148,17 @@ void DynamicsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   juce::ScopedNoDenormals noDenormals;
   parameterManager.updateParameters();
 
-  if (!isProcessorEnabled) {
+  if (!gateEnabled && !compressorEnabled) {
     return;
   }
 
-  float currentMasterOutputGain = masterGainSmoother.getNextValue();
   int numChannels = buffer.getNumChannels();
   int numSamples = buffer.getNumSamples();
 
   for (int sample = 0; sample < numSamples; ++sample) {
-    float maxEnvelopeDb =
-        gateOpenThresholdDb - 1000.0f; // definitely below threshold
-
-    // collect envelope values from all channels
+    // --- LEVEL DETECTION ---//
+    float maxEnvelopeDb = -101.0f; // Start with a very low value, below
+                                   // silenceFloor from level detector
     for (int channel = 0; channel < numChannels; ++channel) {
       auto *channelData = buffer.getReadPointer(channel);
       DSP::LevelDetector &levelDetector = levelDetectors[channel];
@@ -142,41 +168,81 @@ void DynamicsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         maxEnvelopeDb = envDb;
     }
 
-    // linked gating logic
-    float gateEnvelopeDb = maxEnvelopeDb;
-    if (gateEnvelopeDb > gateOpenThresholdDb) {
-      gateIsOpen = true;
-      gateHoldCounter = static_cast<int>(gateHoldSamples);
-    } else if (gateEnvelopeDb < gateCloseThresholdDb) {
-      if (gateHoldCounter > 0) {
-        gateHoldCounter--;
-      } else {
-        gateIsOpen = false;
+    //--- GATE LOGIC  ---//
+    float gateCurrentGainLinear = 1.0f;
+    if (gateEnabled) {
+      float gateEnvelopeDb = maxEnvelopeDb;
+      if (gateEnvelopeDb > gateOpenThresholdDb) {
+        gateIsOpen = true;
+        gateHoldCounter = static_cast<int>(gateHoldSamples);
+      } else if (gateEnvelopeDb < gateCloseThresholdDb) {
+        if (gateHoldCounter > 0) {
+          gateHoldCounter--;
+        } else {
+          gateIsOpen = false;
+        }
       }
+      float gateTargetGainDb = gateIsOpen ? 0.0f : gateReductionDb;
+      if (gateTargetGainDb > gateCurrentGainDb) {
+        gateCurrentGainDb = DSP::Utils::calculateOnePoleSmoothedOutput(
+            gateCurrentGainDb, gateTargetGainDb, gateAttackCoefficient);
+      } else if (gateTargetGainDb < gateCurrentGainDb) {
+        gateCurrentGainDb = DSP::Utils::calculateOnePoleSmoothedOutput(
+            gateCurrentGainDb, gateTargetGainDb, gateReleaseCoefficient);
+      }
+      gateCurrentGainLinear =
+          juce::Decibels::decibelsToGain(gateCurrentGainDb) *
+          gateOutputGainSmoother.getNextValue();
     }
 
-    float targetGainDb = gateIsOpen ? 0.0f : gateReductionDb;
+    //--- COMPRESSOR LOGIC ---//
+    float compressorCurrentGainLinear = 1.0f;
+    if (compressorEnabled) {
+      float inputLevelOverThresholdDb = maxEnvelopeDb - compressorThresholdDb;
+      float gainReductionDb = 0.0f;
+      if (compressorKneeDb > 0.0f) {
+        float kneeHalf = compressorKneeDb / 2.0f;
+        if (inputLevelOverThresholdDb <= -kneeHalf) {
+          gainReductionDb = 0.0f;
+        } else if (inputLevelOverThresholdDb > kneeHalf) {
+          gainReductionDb =
+              compressorThresholdDb + (inputLevelOverThresholdDb - kneeHalf) -
+              (compressorThresholdDb +
+               (inputLevelOverThresholdDb - kneeHalf) / compressorRatio);
+        } else {
+          float x = maxEnvelopeDb;
+          float t = compressorThresholdDb;
+          float r = compressorRatio;
+          float k = compressorKneeDb;
+          gainReductionDb =
+              ((1.0f / r - 1.0f) * powf(x - t + k / 2.0f, 2.0f)) / (2.0f * k);
+        }
+      } else {
+        if (inputLevelOverThresholdDb > 0.0f) {
+          gainReductionDb = inputLevelOverThresholdDb -
+                            inputLevelOverThresholdDb / compressorRatio;
+        } else {
+          gainReductionDb = 0.0f;
+        }
+      }
 
-    if (targetGainDb > gateCurrentGainDb) {
-      gateCurrentGainDb =
-          std::min(DSP::Utils::calculateOnePoleSmoothedOutput(
-                       gateCurrentGainDb, targetGainDb, gateAttackCoefficient),
-                   targetGainDb);
-    } else if (targetGainDb < gateCurrentGainDb) {
-      gateCurrentGainDb =
-          std::max(DSP::Utils::calculateOnePoleSmoothedOutput(
-                       gateCurrentGainDb, targetGainDb, gateReleaseCoefficient),
-                   targetGainDb);
+      float compressorTargetGainDb = -gainReductionDb + compressorMakeupGainDb;
+      float compressorCoef = (compressorTargetGainDb > compressorCurrentGainDb)
+                                 ? compressorAttackCoef
+                                 : compressorReleaseCoef;
+      compressorCurrentGainDb = DSP::Utils::calculateOnePoleSmoothedOutput(
+          compressorCurrentGainDb, compressorTargetGainDb, compressorCoef);
+      compressorCurrentGainLinear =
+          juce::Decibels::decibelsToGain(compressorCurrentGainDb) *
+          compressorOutputGainSmoother.getNextValue();
     }
-    auto gateCurrentGainLinear =
-        juce::Decibels::decibelsToGain(gateCurrentGainDb);
 
-    // apply gate gain to all channels for this sample
+    //--- APPLY GAINS ---//
     for (int channel = 0; channel < numChannels; ++channel) {
       auto *writeBuffer = buffer.getWritePointer(channel);
       auto *channelData = buffer.getReadPointer(channel);
-      writeBuffer[sample] =
-          channelData[sample] * gateCurrentGainLinear * currentMasterOutputGain;
+      writeBuffer[sample] = channelData[sample] * gateCurrentGainLinear *
+                            compressorCurrentGainLinear;
     }
   }
 }
@@ -197,7 +263,7 @@ void DynamicsAudioProcessor::setStateInformation(const void *data,
 }
 
 juce::AudioProcessorEditor *DynamicsAudioProcessor::createEditor() {
-  return new DynamicsAudioProcessor(*this);
+  return new DynamicsAudioProcessorEditor(*this);
 }
 
 const juce::String DynamicsAudioProcessor::getName() const {
