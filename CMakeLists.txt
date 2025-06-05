@@ -163,6 +163,9 @@ function(add_plugin target)
     endif()
 endfunction()
 
+# source extras
+set(dsp_source ${CMAKE_CURRENT_SOURCE_DIR}/projects/DSP)
+
 # dynamics processor
 set(dynamics_processor_source
     ${CMAKE_CURRENT_SOURCE_DIR}/projects/DynamicsProcessor
@@ -177,6 +180,9 @@ add_plugin(dynamics_processor
   SOURCES
     ${dynamics_processor_source}/PluginEditor.cpp
     ${dynamics_processor_source}/PluginProcessor.cpp
+    ${dsp_source}/LevelDetector.cpp
+    ${dsp_source}/Utils.cpp
   INCLUDE_DIRS
         ${dynamics_processor_source}
+        ${dsp_source}
 )

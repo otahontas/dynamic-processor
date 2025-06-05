@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
+#include "LevelDetector.h"
 #include "PluginEditor.h"
+#include "Utils.h"
 #include <algorithm>
 #include <vector>
 
@@ -67,42 +69,24 @@ NoiseGateAudioProcessor::NoiseGateAudioProcessor()
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateAttack, [this](float newValueMs, bool /*forced*/) {
-        gateAttackCoeff =
-            calculateInternalGateCoeff(newValueMs, currentSampleRate);
+        gateAttackCoefficient = DSP::Utils::calculateSmoothingCoefficient(
+            newValueMs, currentSampleRate);
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateHold, [this](float newValueMs, bool /*forced*/) {
-        gateHoldSamples = msToSamples(newValueMs, currentSampleRate);
+        gateHoldSamples =
+            DSP::Utils::msToSamples(newValueMs, currentSampleRate);
       });
   parameterManager.registerParameterCallback(
       Param::ID::GateRelease, [this](float newValueMs, bool /*forced*/) {
-        gateReleaseCoeff =
-            calculateInternalGateCoeff(newValueMs, currentSampleRate);
+        gateReleaseCoefficient = DSP::Utils::calculateSmoothingCoefficient(
+            newValueMs, currentSampleRate);
       });
 }
 
 NoiseGateAudioProcessor::~NoiseGateAudioProcessor() {}
 
-float NoiseGateAudioProcessor::msToSamples(float valueMs, double sampleRate) {
-  return (valueMs / 1000.0f) * static_cast<float>(sampleRate);
-}
-
-float NoiseGateAudioProcessor::calculateInternalGateCoeff(float timeMs,
-                                                          double sampleRate) {
-  if (timeMs <= 0.0f || sampleRate <= 0.0) {
-    return 0.0f;
-  }
-  return std::exp(-1.0f / msToSamples(timeMs, sampleRate));
-}
-
-float NoiseGateAudioProcessor::applyOnePoleSmoothing(float currentValue,
-                                                     float targetValue,
-                                                     float smoothingCoeff) {
-  return smoothingCoeff * currentValue + (1.0f - smoothingCoeff) * targetValue;
-}
-
 void NoiseGateAudioProcessor::resetInternalGateValuesToDefaults() {
-  gateEnvelope = GATE_ENVELOPE_DEFAULT;
   gateCurrentGain = gateReductionLinear;
   gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
 }
@@ -110,10 +94,7 @@ void NoiseGateAudioProcessor::resetInternalGateValuesToDefaults() {
 void NoiseGateAudioProcessor::prepareToPlay(double sampleRate,
                                             int samplesPerBlock) {
   currentSampleRate = sampleRate;
-  detectorAttackCoeff = calculateInternalGateCoeff(
-      GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT, currentSampleRate);
-  detectorReleaseCoeff = calculateInternalGateCoeff(
-      GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT, currentSampleRate);
+  levelDetector.prepare(sampleRate);
   parameterManager.updateParameters(true);
   resetInternalGateValuesToDefaults();
 }
@@ -132,20 +113,13 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
     // read & write to sepearate buffs, VSTs might have differences between
     auto *channelData = buffer.getReadPointer(channel);
-    auto *writeChannel = buffer.getWritePointer(channel);
+    auto *writeBuffer = buffer.getWritePointer(channel);
 
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
       float inputSample = channelData[sample];
-      float inputAbs = std::abs(inputSample);
 
-      // 1. update internal gate envelope that tracks the input level
-      if (inputAbs > gateEnvelope) {
-        gateEnvelope = detectorAttackCoeff * gateEnvelope +
-                       (1.0f - detectorAttackCoeff) * inputAbs;
-      } else {
-        gateEnvelope = detectorReleaseCoeff * gateEnvelope +
-                       (1.0f - detectorReleaseCoeff) * inputAbs;
-      }
+      // 1. get the envelope level of the input sample
+      float gateEnvelope = levelDetector.process(inputSample);
 
       // 2. run the gate logic
       // gate is
@@ -167,27 +141,23 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       }
 
       // 3. get the gain reduction (if open, no reduction, otherwise reduce)
-      float targetGainToApply;
-      if (gateOpen) {
-        targetGainToApply = 1.0f;
-      } else {
-        targetGainToApply = gateReductionLinear; // Use the reduction value
-      }
-      // 3. smooth gain with one-pole smoothing based on attack and release from
+      float targetGain = gateOpen ? 1.0f : gateReductionLinear;
+
+      // 4. smooth gain with one-pole smoothing based on attack and release from
       // user
       // clamps (min / max) values just in case gate over 1 / less than 0
-      if (targetGainToApply > gateCurrentGain) {
+      if (targetGain > gateCurrentGain) {
         gateCurrentGain =
-            std::min(applyOnePoleSmoothing(gateCurrentGain, targetGainToApply,
-                                           gateAttackCoeff),
-                     targetGainToApply);
-      } else if (targetGainToApply < gateCurrentGain) {
+            std::min(DSP::Utils::calculateOnePoleSmoothedOutput(
+                         gateCurrentGain, targetGain, gateAttackCoefficient),
+                     targetGain);
+      } else if (targetGain < gateCurrentGain) {
         gateCurrentGain =
-            std::max(applyOnePoleSmoothing(gateCurrentGain, targetGainToApply,
-                                           gateReleaseCoeff),
-                     targetGainToApply);
+            std::max(DSP::Utils::calculateOnePoleSmoothedOutput(
+                         gateCurrentGain, targetGain, gateReleaseCoefficient),
+                     targetGain);
       }
-      writeChannel[sample] =
+      writeBuffer[sample] =
           inputSample * gateCurrentGain * currentMasterOutputGain;
     }
   }
@@ -195,6 +165,7 @@ void NoiseGateAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
 void NoiseGateAudioProcessor::releaseResources() {
   resetInternalGateValuesToDefaults();
+  levelDetector.reset();
 }
 
 void NoiseGateAudioProcessor::getStateInformation(juce::MemoryBlock &destData) {

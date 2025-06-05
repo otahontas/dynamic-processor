@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PluginProcessor.h"
-#include <JuceHeader.h>
 
 class NoiseGateAudioProcessorEditor : public juce::AudioProcessorEditor {
 public:

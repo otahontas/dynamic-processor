@@ -1,6 +1,8 @@
 #pragma once
 
+#include "LevelDetector.h"
 #include <JuceHeader.h>
+
 namespace Param {
 namespace ID {
 // generic
@@ -115,37 +117,25 @@ private:
   double currentSampleRate = 0;
   bool isProcessorEnabled = true;
   juce::SmoothedValue<float> masterGainSmoother;
+  DSP::LevelDetector levelDetector;
 
   // internal gate defaults
   // - envelope, gain and hold counter start always from zero
-  // - attack (fast) and release (moderate) time are used to set how quickly
-  // peak detection reacts to changes in input. Set to 0 if you want peak
-  // detection to work instantly all the time.
-  static constexpr float GATE_ENVELOPE_DEFAULT = 0.0f;
   static constexpr float GATE_REDUCTION_LINEAR_DEFAULT = 0.0f;
   static constexpr int GATE_HOLD_COUNTER_DEFAULT = 0;
-  static constexpr float GATE_ENVELOPE_DETECTOR_ATTACK_TIME_DEFAULT = 1.0f;
-  static constexpr float GATE_ENVELOPE_DETECTOR_RELEASE_TIME_DEFAULT = 100.0f;
 
   // gate stuff
   // == calculated / set for internal stuff
-  float gateEnvelope = GATE_ENVELOPE_DEFAULT;
   float gateCurrentGain = GATE_REDUCTION_LINEAR_DEFAULT;
   int gateHoldCounter = GATE_HOLD_COUNTER_DEFAULT;
-  float detectorAttackCoeff = 0.0f;
-  float detectorReleaseCoeff = 0.0f;
   // == calculated based on user settings
   float gateThresholdLinear = 0.0f;
   float gateReductionLinear = GATE_REDUCTION_LINEAR_DEFAULT;
-  float gateAttackCoeff = 0.0f;
-  float gateReleaseCoeff = 0.0f;
+  float gateAttackCoefficient = 0.0f;
+  float gateReleaseCoefficient = 0.0f;
   float gateHoldSamples = 0.0f;
 
   // helpers
-  float msToSamples(float timeMs, double sampleRate);
-  float calculateInternalGateCoeff(float valueMs, double sampleRate);
-  float applyOnePoleSmoothing(float currentValue, float targetValue,
-                              float smoothingCoeff);
   void resetInternalGateValuesToDefaults();
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseGateAudioProcessor)

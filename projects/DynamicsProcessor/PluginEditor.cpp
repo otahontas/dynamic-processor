@@ -1,5 +1,4 @@
 #include "PluginEditor.h"
-#include "PluginProcessor.h"
 
 NoiseGateAudioProcessorEditor::NoiseGateAudioProcessorEditor(
     NoiseGateAudioProcessor &p)
