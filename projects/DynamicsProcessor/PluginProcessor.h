@@ -18,12 +18,18 @@ static const juce::String GateRelease{"gate_release"};
 // compressor
 static const juce::String CompressorEnabled{"compressor_enabled"};
 static const juce::String CompressorOutputGain{"compressor_output_gain"};
+static const juce::String CompressorThreshold{"compressor_threshold"};
+static const juce::String CompressorRatio{"compressor_ratio"};
+static const juce::String CompressorKnee{"compressor_knee"};
+static const juce::String CompressorAttack{"compressor_attack"};
+static const juce::String CompressorRelease{"compressor_release"};
+static const juce::String CompressorMakeupGain{"compressor_makeup_gain"};
 } // namespace ID
 
 namespace Name {
 // gate
-static const juce::String GateEnabled{"Gate Enabled"};
-static const juce::String GateOutputGain{"Gate Output Gain"};
+static const juce::String GateEnabled{"Gate enabled"};
+static const juce::String GateOutputGain{"Gate output gain"};
 static const juce::String GateThreshold{"Gate threshold"};
 static const juce::String GateHysteresis{"Gate hysteresis"};
 static const juce::String GateReduction{"Gate reduction"};
@@ -31,8 +37,14 @@ static const juce::String GateAttack{"Gate attack"};
 static const juce::String GateHold{"Gate hold"};
 static const juce::String GateRelease{"Gate release"};
 // compressor
-static const juce::String CompressorEnabled{"Compressor Enabled"};
-static const juce::String CompressorOutputGain{"Compressor Output Gain"};
+static const juce::String CompressorEnabled{"Compressor enabled"};
+static const juce::String CompressorOutputGain{"Compressor output gain"};
+static const juce::String CompressorThreshold{"Compressor threshold"};
+static const juce::String CompressorRatio{"Compressor ratio"};
+static const juce::String CompressorKnee{"Compressor knee"};
+static const juce::String CompressorAttack{"Compressor attack"};
+static const juce::String CompressorRelease{"Compressor release"};
+static const juce::String CompressorMakeupGain{"Compressor makeup gain"};
 } // namespace Name
 
 namespace Ranges {
@@ -43,6 +55,37 @@ static constexpr float OutputGainMin{-60.0f};
 static constexpr float OutputGainMax{6.0f};
 static constexpr float OutputGainInc{0.1f};
 static constexpr float OutputGainSkw{2.0f};
+
+// compressor
+static constexpr float CompressorThresholdMin{-50.0f};
+static constexpr float CompressorThresholdMax{0.0f};
+static constexpr float CompressorThresholdInc{0.1f};
+static constexpr float CompressorThresholdSkw{1.0f};
+
+static constexpr float CompressorRatioMin{1.0f};
+static constexpr float CompressorRatioMax{20.0f};
+static constexpr float CompressorRatioInc{0.1f};
+static constexpr float CompressorRatioSkw{1.0f};
+
+static constexpr float CompressorKneeMin{0.0f};
+static constexpr float CompressorKneeMax{24.0f};
+static constexpr float CompressorKneeInc{0.1f};
+static constexpr float CompressorKneeSkw{1.0f};
+
+static constexpr float CompressorAttackMin{0.0f};
+static constexpr float CompressorAttackMax{100.0f};
+static constexpr float CompressorAttackInc{0.1f};
+static constexpr float CompressorAttackSkw{1.0f};
+
+static constexpr float CompressorReleaseMin{0.0f};
+static constexpr float CompressorReleaseMax{500.0f};
+static constexpr float CompressorReleaseInc{0.1f};
+static constexpr float CompressorReleaseSkw{1.0f};
+
+static constexpr float CompressorMakeupGainMin{-24.0f};
+static constexpr float CompressorMakeupGainMax{24.0f};
+static constexpr float CompressorMakeupGainInc{0.1f};
+static constexpr float CompressorMakeupGainSkw{1.0f};
 
 // gate
 static constexpr float GateThresholdMin{-100.0f};
@@ -88,6 +131,12 @@ static constexpr float GateReleaseDefault{10.0f};
 // compressor
 static constexpr bool CompressorEnabledDefault{true};
 static constexpr float CompressorOutputGainDefault{0.0f};
+static constexpr float CompressorThresholdDefault{-18.0f};
+static constexpr float CompressorRatioDefault{4.0f};
+static constexpr float CompressorKneeDefault{6.0f};
+static constexpr float CompressorAttackDefault{5.0f};
+static constexpr float CompressorReleaseDefault{50.0f};
+static constexpr float CompressorMakeupGainDefault{0.0f};
 } // namespace Defaults
 
 namespace Units {
@@ -148,15 +197,13 @@ private:
   float gateCurrentGainDb = 0.0f;
   int gateHoldCounter = 0;
 
-  // compressor params (stored directly, hardcoded for now)
+  // compressor params (user configurable)
   bool compressorEnabled = Param::Defaults::CompressorEnabledDefault;
   juce::SmoothedValue<float> compressorOutputGainSmoother;
-  float compressorThresholdDb = -18.0f;
-  float compressorRatio = 4.0f;
-  float compressorKneeDb = 6.0f;
-  float compressorAttackMs = 5.0f;
-  float compressorReleaseMs = 50.0f;
-  float compressorMakeupGainDb = 0.0f;
+  float compressorThresholdDb = Param::Defaults::CompressorThresholdDefault;
+  float compressorRatio = Param::Defaults::CompressorRatioDefault;
+  float compressorKneeDb = Param::Defaults::CompressorKneeDefault;
+  float compressorMakeupGainDb = Param::Defaults::CompressorMakeupGainDefault;
   float compressorAttackCoef = 0.0f;
   float compressorReleaseCoef = 0.0f;
   float compressorCurrentGainDb = 0.0f;

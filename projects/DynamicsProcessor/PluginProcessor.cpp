@@ -3,7 +3,6 @@
 #include "PluginEditor.h"
 #include "Utils.h"
 #include "juce_audio_basics/juce_audio_basics.h"
-#include <algorithm>
 #include <vector>
 
 static const std::vector<mrta::ParameterInfo> Parameters{
@@ -11,37 +10,30 @@ static const std::vector<mrta::ParameterInfo> Parameters{
     {Param::ID::GateEnabled, Param::Name::GateEnabled,
      Param::Ranges::EnabledOff, Param::Ranges::EnabledOn,
      Param::Defaults::GateEnabledDefault},
-
     {Param::ID::GateOutputGain, Param::Name::GateOutputGain, Param::Units::Db,
      Param::Defaults::GateOutputGainDefault, Param::Ranges::OutputGainMin,
      Param::Ranges::OutputGainMax, Param::Ranges::OutputGainInc,
      Param::Ranges::OutputGainSkw},
-
     {Param::ID::GateThreshold, Param::Name::GateThreshold, Param::Units::Db,
      Param::Defaults::GateThresholdDefault, Param::Ranges::GateThresholdMin,
      Param::Ranges::GateThresholdMax, Param::Ranges::GateThresholdInc,
      Param::Ranges::GateThresholdSkw},
-
     {Param::ID::GateHysteresis, Param::Name::GateHysteresis, Param::Units::Db,
      Param::Defaults::GateHysteresisDefault, Param::Ranges::GateHysteresisMin,
      Param::Ranges::GateHysteresisMax, Param::Ranges::GateHysteresisInc,
      Param::Ranges::GateHysteresisSkw},
-
     {Param::ID::GateReduction, Param::Name::GateReduction, Param::Units::Db,
      Param::Defaults::GateReductionDefault, Param::Ranges::GateReductionMin,
      Param::Ranges::GateReductionMax, Param::Ranges::GateReductionInc,
      Param::Ranges::GateReductionSkw},
-
     {Param::ID::GateAttack, Param::Name::GateAttack, Param::Units::Ms,
      Param::Defaults::GateAttackDefault, Param::Ranges::GateAttackMin,
      Param::Ranges::GateAttackMax, Param::Ranges::GateAttackInc,
      Param::Ranges::GateAttackSkw},
-
     {Param::ID::GateHold, Param::Name::GateHold, Param::Units::Ms,
      Param::Defaults::GateHoldDefault, Param::Ranges::GateHoldMin,
      Param::Ranges::GateHoldMax, Param::Ranges::GateHoldInc,
      Param::Ranges::GateHoldSkw},
-
     {Param::ID::GateRelease, Param::Name::GateRelease, Param::Units::Ms,
      Param::Defaults::GateReleaseDefault, Param::Ranges::GateReleaseMin,
      Param::Ranges::GateReleaseMax, Param::Ranges::GateReleaseInc,
@@ -55,6 +47,34 @@ static const std::vector<mrta::ParameterInfo> Parameters{
      Param::Units::Db, Param::Defaults::CompressorOutputGainDefault,
      Param::Ranges::OutputGainMin, Param::Ranges::OutputGainMax,
      Param::Ranges::OutputGainInc, Param::Ranges::OutputGainSkw},
+    {Param::ID::CompressorThreshold, Param::Name::CompressorThreshold,
+     Param::Units::Db, Param::Defaults::CompressorThresholdDefault,
+     Param::Ranges::CompressorThresholdMin,
+     Param::Ranges::CompressorThresholdMax,
+     Param::Ranges::CompressorThresholdInc,
+     Param::Ranges::CompressorThresholdSkw},
+    {Param::ID::CompressorRatio, Param::Name::CompressorRatio, Param::Units::Db,
+     Param::Defaults::CompressorRatioDefault, Param::Ranges::CompressorRatioMin,
+     Param::Ranges::CompressorRatioMax, Param::Ranges::CompressorRatioInc,
+     Param::Ranges::CompressorRatioSkw},
+    {Param::ID::CompressorKnee, Param::Name::CompressorKnee, Param::Units::Db,
+     Param::Defaults::CompressorKneeDefault, Param::Ranges::CompressorKneeMin,
+     Param::Ranges::CompressorKneeMax, Param::Ranges::CompressorKneeInc,
+     Param::Ranges::CompressorKneeSkw},
+    {Param::ID::CompressorAttack, Param::Name::CompressorAttack,
+     Param::Units::Ms, Param::Defaults::CompressorAttackDefault,
+     Param::Ranges::CompressorAttackMin, Param::Ranges::CompressorAttackMax,
+     Param::Ranges::CompressorAttackInc, Param::Ranges::CompressorAttackSkw},
+    {Param::ID::CompressorRelease, Param::Name::CompressorRelease,
+     Param::Units::Ms, Param::Defaults::CompressorReleaseDefault,
+     Param::Ranges::CompressorReleaseMin, Param::Ranges::CompressorReleaseMax,
+     Param::Ranges::CompressorReleaseInc, Param::Ranges::CompressorReleaseSkw},
+    {Param::ID::CompressorMakeupGain, Param::Name::CompressorMakeupGain,
+     Param::Units::Db, Param::Defaults::CompressorMakeupGainDefault,
+     Param::Ranges::CompressorMakeupGainMin,
+     Param::Ranges::CompressorMakeupGainMax,
+     Param::Ranges::CompressorMakeupGainInc,
+     Param::Ranges::CompressorMakeupGainSkw},
 };
 
 DynamicsAudioProcessor::DynamicsAudioProcessor()
@@ -116,6 +136,28 @@ DynamicsAudioProcessor::DynamicsAudioProcessor()
           compressorOutputGainSmoother.setTargetValue(gainLinear);
         }
       });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorThreshold,
+      [this](float value, bool /*forced*/) { compressorThresholdDb = value; });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorRatio,
+      [this](float value, bool /*forced*/) { compressorRatio = value; });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorKnee,
+      [this](float value, bool /*forced*/) { compressorKneeDb = value; });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorAttack, [this](float newValueMs, bool /*forced*/) {
+        compressorAttackCoef = DSP::Utils::calculateSmoothingCoefficient(
+            newValueMs, currentSampleRate);
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorRelease, [this](float newValueMs, bool /*forced*/) {
+        compressorReleaseCoef = DSP::Utils::calculateSmoothingCoefficient(
+            newValueMs, currentSampleRate);
+      });
+  parameterManager.registerParameterCallback(
+      Param::ID::CompressorMakeupGain,
+      [this](float value, bool /*forced*/) { compressorMakeupGainDb = value; });
 }
 
 DynamicsAudioProcessor::~DynamicsAudioProcessor() {}
@@ -133,11 +175,6 @@ void DynamicsAudioProcessor::prepareToPlay(double sampleRate,
   levelDetectors.resize(numChannels);
   for (auto &levelDetector : levelDetectors)
     levelDetector.prepare(sampleRate);
-  // Compressor smoothing coefficients
-  compressorAttackCoef =
-      DSP::Utils::calculateSmoothingCoefficient(compressorAttackMs, sampleRate);
-  compressorReleaseCoef = DSP::Utils::calculateSmoothingCoefficient(
-      compressorReleaseMs, sampleRate);
   compressorCurrentGainDb = 0.0f;
   parameterManager.updateParameters(true);
   resetInternalGateValuesToDefaults();
@@ -200,6 +237,7 @@ void DynamicsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     if (compressorEnabled) {
       float inputLevelOverThresholdDb = maxEnvelopeDb - compressorThresholdDb;
       float gainReductionDb = 0.0f;
+      // soft knee
       if (compressorKneeDb > 0.0f) {
         float kneeHalf = compressorKneeDb / 2.0f;
         if (inputLevelOverThresholdDb <= -kneeHalf) {
@@ -210,19 +248,16 @@ void DynamicsAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
               (compressorThresholdDb +
                (inputLevelOverThresholdDb - kneeHalf) / compressorRatio);
         } else {
-          float x = maxEnvelopeDb;
-          float t = compressorThresholdDb;
-          float r = compressorRatio;
-          float k = compressorKneeDb;
-          gainReductionDb =
-              ((1.0f / r - 1.0f) * powf(x - t + k / 2.0f, 2.0f)) / (2.0f * k);
+          gainReductionDb = ((1.0f / compressorRatio - 1.0f) *
+                             powf(maxEnvelopeDb - compressorThresholdDb +
+                                      compressorKneeDb / 2.0f,
+                                  2.0f)) /
+                            (2.0f * compressorKneeDb);
         }
-      } else {
+      } else { // knee 0 -> hard knee
         if (inputLevelOverThresholdDb > 0.0f) {
           gainReductionDb = inputLevelOverThresholdDb -
                             inputLevelOverThresholdDb / compressorRatio;
-        } else {
-          gainReductionDb = 0.0f;
         }
       }
 
