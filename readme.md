@@ -1,6 +1,6 @@
 # Dynamics processor
 
-Noise gate + possibly compressor
+Noise gate + compressor
 
 ## Pre-requisites
 
@@ -17,14 +17,6 @@ Noise gate + possibly compressor
 **Linux**:
  - [Linux instructions](readme-linux.md)
 
-**Nice to have**:
- - [VSCode](https://code.visualstudio.com/) - Alternative cross-platform IDE.
- - [Reaper](https://www.reaper.fm/download.php) - Fully featured DAW. Demo is free and fully functional.
- - [PluginDoctor](https://ddmf.eu/plugindoctor/) - Handy for audio/DSP debugging. Demo is free and fully functional.
- - [Surge](https://surge-synthesizer.github.io/) - FOSS synth, handy for quick testing in a DAW.
- - [SocaLabs Plugins](https://socalabs.com/) - Various useful free plugins, like osciloscope and tone generators.
- - [ASIO4ALL](https://asio4all.org/) - *Windows only*. In case you don’t have a soundcard with an ASIO driver.
-
 ## Cloning the Repository
 If you have a [github account](https://docs.github.com/en/get-started/signing-up-for-github/signing-up-for-a-new-github-account) with a [SSH key setup](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account):
 
@@ -32,8 +24,27 @@ If you have a [github account](https://docs.github.com/en/get-started/signing-up
 git clone --recurse-submodules git@github.com:otahontas/dynamic-processor.git
 ```
 
-## Build the example project
+or with https:
+
+```sh
+git clone --recurse-submodules https://github.com/otahontas/dynamic-processor.git
 ```
-./configure.sh
-./build.sh mfrtaa
+
+## Building
+
+### Debug mode
+
+(allows debug symbols + extra warnings for debug builds)
+Run:
+```sh
+./configure.sh Debug
+./build.sh dynamics_processor [Standalone/AU/VST3]
+```
+
+### Release mode
+
+Run:
+```sh
+./configure.sh Release
+./build.sh dynamics_processor [Standalone/AU/VST3]
 ```
