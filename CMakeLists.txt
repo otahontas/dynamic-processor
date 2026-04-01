@@ -4,7 +4,9 @@ cmake_minimum_required(VERSION 3.25)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Set universal binary build on MacOS
-set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
+if(NOT CMAKE_OSX_ARCHITECTURES)
+  set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
+endif()
 
 # Set macOS target deployment version
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")

@@ -11,7 +11,11 @@ BUILD_TYPE=${1:-Debug}
 echo "Configuring for build type: ${BUILD_TYPE}"
 
 # Export compile commands AND set the build type
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -S . -B build
+if [ -n "${CMAKE_OSX_ARCHITECTURES}" ]; then
+  cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" -S . -B build
+else
+  cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -S . -B build
+fi
 
 # link compile commands
 # Only link if the build directory was successfully created
