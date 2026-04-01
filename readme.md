@@ -39,21 +39,28 @@ git clone --recurse-submodules https://github.com/otahontas/dynamic-processor.gi
 
 ## Building
 
+All commands run inside the devenv shell (`devenv shell` or auto-activated via direnv).
+
 ### Debug mode
 
-(allows debug symbols + extra warnings for debug builds)
-Run:
-
 ```sh
-./configure.sh Debug
-./build.sh dynamics_processor [Standalone/AU/VST3]
+devenv tasks run project:configure
+devenv tasks run project:build
 ```
 
 ### Release mode
 
-Run:
+```sh
+devenv tasks run project:configure --input build_type=Release
+devenv tasks run project:build --input config=Release
+```
+
+### Other options
 
 ```sh
-./configure.sh Release
-./build.sh dynamics_processor [Standalone/AU/VST3]
+# Build a specific format (VST3, AU, Standalone)
+devenv tasks run project:build --input format=VST3
+
+# Override multiple inputs
+devenv tasks run project:build --input target=dynamics_processor --input format=Standalone --input config=Debug --input jobs=8
 ```
